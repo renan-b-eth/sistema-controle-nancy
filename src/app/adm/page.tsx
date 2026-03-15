@@ -78,7 +78,16 @@ export default function AdmDashboard() {
 
   const atualizarStatus = (id: string, novoStatus: 'liberado' | 'negado') => {
     const todas = JSON.parse(localStorage.getItem('portaoEdu_solicitacoes') || '[]');
-    const novas = todas.map((s: Solicitacao) => s.id === id ? { ...s, status: novoStatus } : s);
+    const novas = todas.map((s: Solicitacao) => {
+      if (s.id === id) {
+        const atualizada = { ...s, status: novoStatus };
+        if (novoStatus === 'liberado') {
+          generatePDF(atualizada);
+        }
+        return atualizada;
+      }
+      return s;
+    });
     localStorage.setItem('portaoEdu_solicitacoes', JSON.stringify(novas));
     setSolicitacoes(novas);
   };
@@ -90,57 +99,79 @@ export default function AdmDashboard() {
   const generatePDF = (s: Solicitacao) => {
     const doc = new jsPDF();
     const aluno = ALUNOS_MOCK.find(a => a.ra === s.ra);
+    const protocol = Date.now();
+    const fileNameDate = s.data.replace(/\//g, '-');
     
-    // Cabeçalho
-    doc.setFontSize(22);
-    doc.setTextColor(30, 64, 175); // Blue-700
-    doc.text('PortãoEdu - Comprovante de Entrada', 105, 20, { align: 'center' });
+    // 1. CABEÇALHO
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('PortãoEdu - Escola Central', 105, 20, { align: 'center' });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.text('Registro de Entrada com Atraso', 105, 28, { align: 'center' });
+    
+    doc.setLineWidth(0.5);
+    doc.line(20, 32, 190, 32);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Gerado em: ${new Date().toLocaleString()}`, 105, 28, { align: 'center' });
+    doc.text(`Gerado em: ${new Date().toLocaleString()}`, 105, 38, { align: 'center' });
 
-    // Logo Placeholder
-    doc.setDrawColor(200);
-    doc.rect(10, 10, 20, 20);
-    doc.text('LOGO', 14, 22);
-
-    // Dados do Aluno e Ocorrência
-    autoTable(doc, {
-      startY: 40,
-      head: [['Campo', 'Informação']],
-      body: [
-        ['Nome Completo', s.nome],
-        ['RA', s.ra],
-        ['Turma', aluno?.turma || 'N/A'],
-        ['Data da Ocorrência', s.data],
-        ['Horário de Chegada', s.horario],
-        ['Motivo do Atraso', s.motivo],
-        ['Status', s.status.toUpperCase()],
-      ],
-      theme: 'striped',
-      headStyles: { fillColor: [30, 64, 175] },
+    // 2. DADOS DO ALUNO
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DADOS DO ALUNO:', 20, 50);
+    
+    doc.setFont('helvetica', 'normal');
+    const dadosAluno = [
+      `Nome completo: ${s.nome}`,
+      `RA: ${s.ra}`,
+      `Turma: ${aluno?.turma || 'N/A'}`,
+      `Data da ocorrência: ${s.data}`,
+      `Horário de chegada: ${s.horario}`
+    ];
+    
+    let currentY = 58;
+    dadosAluno.forEach(linha => {
+      doc.text(linha, 25, currentY);
+      currentY += 7;
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY || 100;
+    // 3. MOTIVO DO ATRASO
+    currentY += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('MOTIVO DO ATRASO:', 20, currentY);
+    
+    currentY += 5;
+    doc.setFont('helvetica', 'normal');
+    const motivoText = doc.splitTextToSize(s.motivo, 160);
+    const boxHeight = (motivoText.length * 7) + 10;
+    
+    doc.rect(20, currentY, 170, boxHeight);
+    doc.text(motivoText, 25, currentY + 7);
 
-    // Assinaturas
+    // 4. CAMPO DE ASSINATURA
+    let sigY = 220;
     doc.setFontSize(10);
-    doc.setTextColor(0);
     
-    doc.line(20, finalY + 40, 90, finalY + 40);
-    doc.text('Assinatura do Responsável', 55, finalY + 45, { align: 'center' });
+    doc.text('Assinatura do Aluno: ________________________________________', 20, sigY);
+    doc.text('Nome legível: ________________________________________', 20, sigY + 8);
     
-    doc.line(120, finalY + 40, 190, finalY + 40);
-    doc.text('Assinatura do Administrador', 155, finalY + 45, { align: 'center' });
-    doc.text(user.name, 155, finalY + 50, { align: 'center' });
+    sigY += 28; // Espaço de 20px (8 + 20)
+    
+    doc.text('Assinatura do Responsável (ADM): ________________________________________', 20, sigY);
+    doc.text('Nome legível: ________________________________________', 20, sigY + 8);
+    doc.text(`Data: _____ / _____ / _________`, 20, sigY + 16);
 
-    // Rodapé
+    // 5. RODAPÉ
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text('Documento gerado automaticamente pelo PortãoEdu', 105, 285, { align: 'center' });
+    doc.text(`Protocolo: ${protocol}`, 105, 290, { align: 'center' });
 
-    doc.save(`comprovante_${s.ra}_${s.id}.pdf`);
+    doc.save(`entrada_${s.ra}_${fileNameDate}.pdf`);
   };
 
   const startScanner = () => {
