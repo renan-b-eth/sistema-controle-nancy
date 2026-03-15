@@ -88,7 +88,7 @@ export default function AdmDashboard() {
   };
 
   const generatePDF = (s: Solicitacao) => {
-    const doc = jsPDF();
+    const doc = new jsPDF();
     const aluno = ALUNOS_MOCK.find(a => a.ra === s.ra);
     
     // Cabeçalho
