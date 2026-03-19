@@ -1,0 +1,29 @@
+================================================================================
+          PORTÃOEDU - LISTA DE ACESSO (LOGINS - NANCY DE OLIVEIRA FIDALGO)
+================================================================================
+
+Estes são os dados de acesso para os alunos autorizados. 
+O LOGIN e a SENHA são o RG do aluno (com pontos, traços e letras se houver).
+
+--------------------------------------------------------------------------------
+NOME DO ALUNO                      | LOGIN/SENHA (RG)      | TURMA
+--------------------------------------------------------------------------------
+DAVI DE MATOS FONSECA              | 000111738164-X        | 2ª A
+GUSTAVO VIEIRA DA SILVA            | 000112274129-7        | 2ª B
+JOAO VICTOR PEREIRA RODRIGUES      | 000113380121-3        | 2ª B
+KERRISON LIMA RIBEIRO              | 000113183044-1        | 2ª B
+ALANA GAMA DE ARAUJO               | 000112164941-5        | 2ª D
+--------------------------------------------------------------------------------
+
+INSTRUÇÕES PARA O ALUNO:
+1. Acesse o sistema PortãoEdu.
+2. No campo 'RG ou E-mail', digite seu RG completo.
+3. No campo 'Senha', digite o mesmo RG.
+4. Clique em 'Entrar no Sistema'.
+
+INSTRUÇÕES PARA CARLOS / IVONE:
+- Alunos na 1ª e 2ª aula geram PDF automático para assinatura.
+- A partir da 3ª aula, o aluno deve ser encaminhado para a direção.
+
+Gerado em: 19/03/2026
+================================================================================

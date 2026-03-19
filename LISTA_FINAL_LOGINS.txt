@@ -1,0 +1,52 @@
+================================================================================
+          PORTÃOEDU - LISTA DE ACESSO FINAL (TOTAL: 35 ALUNOS)
+================================================================================
+
+ADMINISTRAÇÃO:
+- Carlos: carlos@adm.com | Senha: carlos123
+- Ivone:  ivone@adm.com  | Senha: ivone123
+
+--------------------------------------------------------------------------------
+ALUNOS (LOGIN/SENHA É O RG):
+--------------------------------------------------------------------------------
+NOME DO ALUNO                      | RG (LOGIN/SENHA)      | TURMA
+--------------------------------------------------------------------------------
+DAVI DE MATOS FONSECA              | 000111738164-X        | 2ª A
+GUSTAVO VIEIRA DA SILVA            | 000112274129-7        | 2ª B
+JOAO VICTOR PEREIRA RODRIGUES      | 000113380121-3        | 2ª B
+KERRISON LIMA RIBEIRO              | 000113183044-1        | 2ª B
+ALANA GAMA DE ARAUJO               | 000112164941-5        | 2ª D
+GUILHERME BIZARRIAS DE SOUZA       | 000114183041-3        | 2ª D
+ISABELLY DA SILVA BESSA            | 000111732839-9        | 2ª D
+ISABELLY RODRIGUES GOES            | 000114071847-2        | 2ª D
+DAVID LOPES RODRIGUES COSTA        | 000110391065-6        | 2ª E
+EMANUELLY MARQUES BATISTA          | 000114079075-4        | 2ª E
+JEFFERSON BORGES BELMIRO           | 000110414712-9        | 2ª E
+JONATHAN LIMA DE JESUS             | 000111878938-6        | 2ª E
+RAFAELLA VITORIA RIOS ALVES        | 000124489097-2        | 2ª E
+ANA CAROLINA DA SILVA DIAS         | 000110385221-8        | 3ª B
+ANNY RAIANY MARCELINO DA SILVA     | 000112550639-8        | 3ª B
+GUSTAVO HENRIQUE DOS SANTOS        | 000111878084-X        | 3ª B
+RENAN ARTHUR INNOCENCIO            | 000110403329-X        | 3ª B
+GUILHERME PAIN DE SOUZA            | 000112183892-3        | 3ª B
+GEOVANNA DOS SANTOS SILVA          | 000111844942-3        | 3ª B
+MARIA LUISA DA SILVA XAVIER        | 000113892805-7        | 3ª B
+MARCELO WENDER MIRANDA             | 000113097182-X        | 3ª C
+KETHELLYN DOS SANTOS CAJANO        | 000112360623-7        | 3ª C
+KAUE DAS NEVES SOUSA DA SILVA      | 000110358351-7        | 3ª C
+JOSE HENRIQUE FERREIRA             | 000110413405-6        | 3ª C
+RENAN SILVA SOUZA                  | 000111838874-4        | 3ª D
+JOANNA AZEVEDO DOS SANTOS          | 000110379588-0        | 3ª D
+RAYSSA RAKELLY RODRIGUES           | 000111836580-X        | 3ª D
+GLORIA STEPHANY PEREIRA            | 000111844999-X        | 3ª D
+JULIA DE LIMA PINHEIRO             | 000113269559-4        | 3ª D
+LUCAS VINICIUS DA SILVA            | 000112793347-4        | 3ª E
+RUAN ALDO FERREIRA DO AMARAL       | 000111878754-7        | 3ª E
+DOUGLAS FREIRE DE MELO             | 000113493367-8        | 3ª E
+MARCELLA DELAMARE VIEIRA           | 000112884576-3        | 3ª E
+BEATRYZ GONCALVES DA SILVA         | 000112606661-8        | 3ª E
+GABRIELE DA SILVA SANTOS           | 000111836491-0        | 3ª E
+--------------------------------------------------------------------------------
+
+SISTEMA ATUALIZADO EM: 19/03/2026
+================================================================================

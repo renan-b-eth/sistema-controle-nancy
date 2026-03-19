@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
-import { getAulaAtual, isAcessoBloqueado, Aula } from '@/utils/horarios';
+import { getAulaAtual, Aula } from '@/utils/horarios';
 import { gerarPDFAssinatura } from '@/utils/pdfGenerator';
+import { supabase } from '@/utils/supabase';
 
 interface Solicitacao {
   id: string;
@@ -43,7 +44,6 @@ export default function AlunoDashboard() {
     setAulaAtual(aula);
     setQrValue(`${parsedUser.ra}-${Date.now()}`);
 
-    // Lógica de Registro e PDF Automático (Apenas uma vez por login)
     if (!processado) {
       registrarEGerarPDF(parsedUser, aula);
       setProcessado(true);
@@ -55,11 +55,12 @@ export default function AlunoDashboard() {
     return () => clearInterval(interval);
   }, [router, processado]);
 
-  const registrarEGerarPDF = (u: any, aula: Aula | null) => {
-    if (!aula) return; // Fora do horário de aula regular
+  const registrarEGerarPDF = async (u: any, aula: Aula | null) => {
+    if (!aula) return;
 
     const dataAtual = new Date().toLocaleDateString();
     const horarioAtual = new Date().toLocaleTimeString();
+    const protocolo = `PE-${Date.now()}`;
 
     let status: 'liberado' | 'bloqueado' | 'direcao' = 'liberado';
 
@@ -69,9 +70,27 @@ export default function AlunoDashboard() {
       status = 'direcao';
     }
 
-    // Registrar no Banco de Dados (localStorage)
+    // 1. Salvar no Supabase (Histórico Online)
+    try {
+      await supabase.from('entradas').insert({
+        aluno_id: null, // Opcional se não linkar por ID agora
+        data: new Date().toISOString().split('T')[0],
+        horario: horarioAtual,
+        aula_numero: aula.numero,
+        status: status,
+        protocolo: protocolo,
+        // Campos extras para facilitar visualização sem joins
+        nome_aluno: u.name,
+        rg_aluno: u.rg,
+        turma_aluno: u.turma
+      });
+    } catch (e) {
+      console.error("Erro ao salvar no Supabase, mantendo local.");
+    }
+
+    // 2. Salvar Localmente (Backup)
     const novaEntrada: Solicitacao = {
-      id: `ENT-${Date.now()}`,
+      id: protocolo,
       nome: u.name,
       ra: u.ra,
       rg: u.rg,
@@ -81,12 +100,10 @@ export default function AlunoDashboard() {
       aulaNumero: aula.numero,
       status: status
     };
-
     const todas = JSON.parse(localStorage.getItem('portaoEdu_solicitacoes') || '[]');
     localStorage.setItem('portaoEdu_solicitacoes', JSON.stringify([novaEntrada, ...todas]));
 
-    // Gerar PDF automaticamente se for liberado ou bloqueado (para assinar o motivo)
-    // O usuário pediu: "assim que ele logar, vai gerar um pdf"
+    // 3. Gerar PDF
     if (status !== 'direcao') {
       gerarPDFAssinatura({
         nome: u.name,
@@ -111,98 +128,109 @@ export default function AlunoDashboard() {
   const redirecionarDirecao = aulaAtual && aulaAtual.numero >= 3;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8 border-b pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
-               <span className="text-white font-bold">Nancy</span>
+        <div className="flex justify-between items-center mb-10 bg-white p-4 rounded-2xl shadow-sm border border-blue-50">
+          <div className="flex items-center space-x-4">
+            <div className="bg-blue-600 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100">
+               <span className="text-white font-black text-xl">N</span>
             </div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-800">PortãoEdu - Aluno</h1>
+            <div>
+              <h1 className="text-xl md:text-2xl font-black text-blue-900 tracking-tight">PortãoEdu</h1>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Painel do Aluno</p>
+            </div>
           </div>
           <button
             onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition shadow-sm font-medium"
+            className="px-6 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition font-black text-sm uppercase tracking-wider"
           >
             Sair
           </button>
         </div>
 
-        {/* Status Area */}
-        <div className="mb-8">
+        {/* Alerta de Status */}
+        <div className="mb-10">
           {redirecionarDirecao ? (
-            <div className="p-6 bg-red-100 border-l-8 border-red-600 rounded-lg shadow-md animate-pulse">
-              <h2 className="text-2xl font-black text-red-700 uppercase mb-2">Acesso Restrito</h2>
-              <p className="text-red-800 font-bold text-lg">
-                Você chegou durante a {aulaAtual?.numero}ª aula. 
+            <div className="p-8 bg-red-600 text-white rounded-3xl shadow-2xl shadow-red-200 animate-pulse border-4 border-red-500">
+              <h2 className="text-3xl font-black uppercase mb-4 flex items-center">
+                <span className="mr-3 text-4xl">⚠️</span> ACESSO RESTRITO
+              </h2>
+              <p className="text-xl font-bold opacity-90 leading-relaxed">
+                Você chegou durante a <span className="underline">{aulaAtual?.numero}ª aula</span>. 
                 <br />
-                <strong>Por favor, dirija-se imediatamente à DIREÇÃO ou SECRETARIA para autorização.</strong>
+                <span className="bg-white text-red-600 px-2 py-1 rounded mt-2 inline-block">VÁ IMEDIATAMENTE PARA A DIREÇÃO OU SECRETARIA.</span>
               </p>
             </div>
           ) : bloqueadoSegunda ? (
-            <div className="p-6 bg-yellow-100 border-l-8 border-yellow-500 rounded-lg shadow-md">
-              <h2 className="text-2xl font-black text-yellow-700 uppercase mb-2">Entrada Não Autorizada</h2>
-              <p className="text-yellow-800 font-bold text-lg">
-                Você não está na lista de permissão para entrada na 2ª aula. 
+            <div className="p-8 bg-orange-500 text-white rounded-3xl shadow-2xl shadow-orange-200 border-4 border-orange-400">
+              <h2 className="text-3xl font-black uppercase mb-4 flex items-center">
+                <span className="mr-3 text-4xl">🚫</span> ENTRADA BLOQUEADA
+              </h2>
+              <p className="text-xl font-bold opacity-90 leading-relaxed">
+                Você não possui autorização para entrar na <span className="underline">2ª aula</span>. 
                 <br />
-                Fale com o inspetor ou direção.
+                Procure a equipe de inspeção ou a direção.
               </p>
             </div>
           ) : (
-            <div className="p-6 bg-green-100 border-l-8 border-green-600 rounded-lg shadow-md">
-              <h2 className="text-2xl font-black text-green-700 uppercase mb-2">Entrada Liberada</h2>
-              <p className="text-green-800 font-bold">
-                {aulaAtual ? `Sua entrada foi registrada na ${aulaAtual.numero}ª aula.` : "Seja bem-vindo(a)!"}
+            <div className="p-8 bg-emerald-600 text-white rounded-3xl shadow-2xl shadow-emerald-200 border-4 border-emerald-500">
+              <h2 className="text-3xl font-black uppercase mb-4 flex items-center">
+                <span className="mr-3 text-4xl">✅</span> ENTRADA LIBERADA
+              </h2>
+              <p className="text-xl font-bold opacity-90 leading-relaxed">
+                {aulaAtual ? `Sua entrada na ${aulaAtual.numero}ª aula foi registrada.` : "Acesso autorizado com sucesso!"}
                 <br />
-                O documento de registro foi gerado para impressão.
+                O documento de assinatura foi gerado para impressão.
               </p>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* QR Code Section */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center">
-            <h2 className="text-lg font-bold mb-4 text-gray-700 text-center">Identificação Digital</h2>
-            <div className="p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-              <QRCodeCanvas value={qrValue} size={180} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Identificação Digital */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-blue-50 flex flex-col items-center justify-center text-center">
+            <h2 className="text-xs font-black text-blue-900 uppercase tracking-widest mb-6">Identificação Digital</h2>
+            <div className="p-6 bg-blue-50 rounded-3xl border-4 border-white shadow-inner">
+              <QRCodeCanvas value={qrValue} size={180} fgColor="#1e3a8a" />
             </div>
-            <p className="text-xs text-gray-400 mt-4 text-center font-medium">O código é atualizado a cada 30 segundos</p>
+            <p className="text-[10px] text-gray-400 mt-6 font-bold uppercase tracking-tighter animate-pulse">
+              Código atualiza a cada 30s
+            </p>
           </div>
 
-          {/* Info Section */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 border-b pb-2">Suas Informações</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Dados do Aluno */}
+          <div className="md:col-span-2 space-y-8">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-blue-50">
+              <h2 className="text-xl font-black text-blue-900 mb-6 border-b border-blue-50 pb-4 tracking-tight">Suas Informações</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-400 font-bold uppercase">Nome</p>
-                  <p className="font-semibold text-gray-700">{user.name}</p>
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Nome Completo</p>
+                  <p className="font-bold text-gray-700 text-lg">{user.name}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-400 font-bold uppercase">RA</p>
-                  <p className="font-semibold text-gray-700">{user.ra}</p>
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">RA Escolar</p>
+                  <p className="font-bold text-gray-700 text-lg">{user.ra}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-400 font-bold uppercase">Turma</p>
-                  <p className="font-semibold text-gray-700">{user.turma}</p>
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Turma / Ano</p>
+                  <p className="font-bold text-gray-700 text-lg">{user.turma}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-400 font-bold uppercase">Horário de Login</p>
-                  <p className="font-semibold text-gray-700">{new Date().toLocaleTimeString()}</p>
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Registro de Acesso</p>
+                  <p className="font-bold text-blue-600 text-lg">{new Date().toLocaleTimeString()}</p>
                 </div>
               </div>
             </div>
 
-            {/* Help Info */}
-            <div className="bg-blue-600 p-6 rounded-2xl shadow-lg text-white">
-              <h2 className="text-lg font-bold mb-2">Instruções de Acesso</h2>
-              <ul className="text-sm space-y-2 opacity-90">
-                <li>• Cada aula possui 45 minutos de duração.</li>
-                <li>• Atrasos na 1ª e 2ª aula exigem assinatura de registro.</li>
-                <li>• A partir da 3ª aula, a entrada só é permitida via secretaria.</li>
-                <li>• Mantenha seu RG e RA sempre em mãos.</li>
-              </ul>
+            <div className="bg-blue-900 p-8 rounded-3xl shadow-xl text-white">
+              <h2 className="text-lg font-black uppercase tracking-wider mb-4">Horários de Aula</h2>
+              <div className="space-y-3 opacity-80 font-bold text-sm">
+                <p className="flex justify-between"><span>1ª Aula:</span> <span>19:00 - 19:45</span></p>
+                <p className="flex justify-between"><span>2ª Aula:</span> <span>19:45 - 20:30</span></p>
+                <p className="flex justify-between border-t border-blue-800 pt-3 text-orange-300">
+                  <span>A partir das 20:30:</span> <span>Dirija-se à Secretaria</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>

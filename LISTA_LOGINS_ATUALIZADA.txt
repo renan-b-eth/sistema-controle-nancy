@@ -1,0 +1,27 @@
+================================================================================
+          PORTÃOEDU - LISTA DE ACESSO (LOGINS - ATUALIZADA)
+================================================================================
+
+ADMINISTRAÇÃO (ACESSO CARLOS / IVONE):
+- Carlos: carlos@adm.com | Senha: carlos123
+- Ivone:  ivone@adm.com  | Senha: ivone123
+
+--------------------------------------------------------------------------------
+ALUNOS (LOGIN/SENHA É O RG):
+--------------------------------------------------------------------------------
+NOME DO ALUNO                      | LOGIN/SENHA (RG)      | TURMA
+--------------------------------------------------------------------------------
+DAVI DE MATOS FONSECA              | 000111738164-X        | 2ª A
+GUSTAVO VIEIRA DA SILVA            | 000112274129-7        | 2ª B
+JOAO VICTOR PEREIRA RODRIGUES      | 000113380121-3        | 2ª B
+KERRISON LIMA RIBEIRO              | 000113183044-1        | 2ª B
+ALANA GAMA DE ARAUJO               | 000112164941-5        | 2ª D
+--------------------------------------------------------------------------------
+
+REGRAS DE ACESSO (Turno Noturno 19h-22:45h):
+1ª Aula (19:00 - 19:45): Entrada Liberada para todos.
+2ª Aula (19:45 - 20:30): Entrada SOMENTE para alunos autorizados (lista acima).
+3ª a 5ª Aula: Entrada BLOQUEADA. Aluno deve ir para a DIREÇÃO/SECRETARIA.
+
+Geração de PDF de assinatura automática no login (para 1ª e 2ª aula).
+================================================================================

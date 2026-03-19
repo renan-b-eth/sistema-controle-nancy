@@ -4,17 +4,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import studentsData from '@/data/students.json';
 import { gerarPDFAssinatura } from '@/utils/pdfGenerator';
+import { supabase } from '@/utils/supabase';
 
 interface Entrada {
   id: string;
-  nome: string;
-  ra: string;
-  rg: string;
-  turma: string;
   data: string;
   horario: string;
-  aulaNumero: number;
+  aula_numero: number;
   status: 'liberado' | 'bloqueado' | 'direcao';
+  nome_aluno: string;
+  rg_aluno: string;
+  turma_aluno: string;
+  protocolo: string;
 }
 
 export default function AdmDashboard() {
@@ -41,9 +42,21 @@ export default function AdmDashboard() {
     carregarEntradas();
   }, [router]);
 
-  const carregarEntradas = () => {
-    const todas = JSON.parse(localStorage.getItem('portaoEdu_solicitacoes') || '[]');
-    setEntradas(todas);
+  const carregarEntradas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('entradas')
+        .select('*')
+        .eq('data', filtroData)
+        .order('horario', { ascending: false });
+
+      if (error) throw error;
+      setEntradas(data || []);
+    } catch (e) {
+      console.error("Erro ao carregar do Supabase:", e);
+      const todas = JSON.parse(localStorage.getItem('portaoEdu_solicitacoes') || '[]');
+      setEntradas(todas);
+    }
   };
 
   const handleLogout = () => {

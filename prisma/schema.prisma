@@ -1,0 +1,41 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Aluno {
+  id                   String    @id @default(cuid())
+  nome                 String
+  rg                   String    @unique
+  ra                   String    @unique
+  turma                String
+  liberadoSegundaAula  Boolean   @default(true)
+  entradas             Entrada[]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Entrada {
+  id          String   @id @default(cuid())
+  alunoId     String
+  aluno       Aluno    @relation(fields: [alunoId], references: [id])
+  data        DateTime @default(now())
+  horario     String   // Formato HH:mm:ss
+  aulaNumero  Int
+  status      String   // "liberado", "bloqueado", "direcao"
+  protocolo   String   @unique
+}
+
+model Admin {
+  id    String @id @default(cuid())
+  nome  String
+  email String @unique
+  senha String
+}

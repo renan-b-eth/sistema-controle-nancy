@@ -27,7 +27,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Student Login (RG as username and password)
+    // Student Login (Using the local students.json)
     const student = studentsData.find(s => s.rg === username && username === password);
     
     if (student) {
@@ -48,49 +48,57 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-700">PortãoEdu</h1>
-          <p className="text-gray-500 mt-2">Controle de Acesso Escolar</p>
+      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl border border-blue-50">
+        <div className="text-center mb-10">
+          <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
+            <span className="text-white text-3xl font-black">N</span>
+          </div>
+          <h1 className="text-3xl font-black text-blue-900 tracking-tight">PortãoEdu</h1>
+          <p className="text-gray-500 font-medium mt-2">Escola Nancy de Oliveira Fidalgo</p>
         </div>
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">RG ou E-mail</label>
+
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-1">
+            <label className="text-xs font-black text-blue-900 uppercase tracking-widest ml-1">RG de Acesso</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Digite seu RG ou E-mail"
-              className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="Digite seu RG completo"
+              className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-gray-700"
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Senha</label>
+
+          <div className="space-y-1">
+            <label className="text-xs font-black text-blue-900 uppercase tracking-widest ml-1">Senha (RG)</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Digite sua senha"
-              className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="Repita seu RG"
+              className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-gray-700"
               required
             />
           </div>
+
           {error && (
-            <div className="p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm">
-              {error}
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm font-bold rounded-r-xl">
+              ⚠️ {error}
             </div>
           )}
+
           <button
             type="submit"
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-base font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg shadow-blue-100 transition-all active:scale-95"
           >
-            Entrar no Sistema
+            ENTRAR NO SISTEMA
           </button>
         </form>
-        <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">
-            Desenvolvido para gestão escolar
+
+        <div className="mt-10 pt-6 border-t border-gray-50 text-center">
+          <p className="text-[10px] text-gray-300 font-black uppercase tracking-widest">
+            Gestão Administrativa Carlos & Ivone
           </p>
         </div>
       </div>

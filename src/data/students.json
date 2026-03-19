@@ -1,37 +1,37 @@
 [
-  {
-    "rg": "000111738164-X",
-    "nome": "DAVI DE MATOS FONSECA",
-    "ra": "N2026001",
-    "turma": "2ª A",
-    "liberadoSegundaAula": true
-  },
-  {
-    "rg": "000112274129-7",
-    "nome": "GUSTAVO VIEIRA DA SILVA",
-    "ra": "N2026002",
-    "turma": "2ª B",
-    "liberadoSegundaAula": true
-  },
-  {
-    "rg": "000113380121-3",
-    "nome": "JOAO VICTOR PEREIRA RODRIGUES",
-    "ra": "N2026003",
-    "turma": "2ª B",
-    "liberadoSegundaAula": true
-  },
-  {
-    "rg": "000113183044-1",
-    "nome": "KERRISON LIMA RIBEIRO",
-    "ra": "N2026004",
-    "turma": "2ª B",
-    "liberadoSegundaAula": true
-  },
-  {
-    "rg": "000112164941-5",
-    "nome": "ALANA GAMA DE ARAUJO",
-    "ra": "N2026005",
-    "turma": "2ª D",
-    "liberadoSegundaAula": true
-  }
+  { "rg": "000111738164-X", "nome": "DAVI DE MATOS FONSECA", "ra": "N26001", "turma": "2ª A", "liberadoSegundaAula": true },
+  { "rg": "000112274129-7", "nome": "GUSTAVO VIEIRA DA SILVA", "ra": "N26002", "turma": "2ª B", "liberadoSegundaAula": true },
+  { "rg": "000113380121-3", "nome": "JOAO VICTOR PEREIRA RODRIGUES", "ra": "N26003", "turma": "2ª B", "liberadoSegundaAula": true },
+  { "rg": "000113183044-1", "nome": "KERRISON LIMA RIBEIRO", "ra": "N26004", "turma": "2ª B", "liberadoSegundaAula": true },
+  { "rg": "000112164941-5", "nome": "ALANA GAMA DE ARAUJO", "ra": "N26005", "turma": "2ª D", "liberadoSegundaAula": true },
+  { "rg": "000114183041-3", "nome": "GUILHERME BIZARRIAS DE SOUZA", "ra": "N26006", "turma": "2ª D", "liberadoSegundaAula": true },
+  { "rg": "000111732839-9", "nome": "ISABELLY DA SILVA BESSA", "ra": "N26007", "turma": "2ª D", "liberadoSegundaAula": true },
+  { "rg": "000114071847-2", "nome": "ISABELLY RODRIGUES GOES", "ra": "N26008", "turma": "2ª D", "liberadoSegundaAula": true },
+  { "rg": "000110391065-6", "nome": "DAVID LOPES RODRIGUES COSTA", "ra": "N26009", "turma": "2ª E", "liberadoSegundaAula": true },
+  { "rg": "000114079075-4", "nome": "EMANUELLY MARQUES BATISTA", "ra": "N26010", "turma": "2ª E", "liberadoSegundaAula": true },
+  { "rg": "000110414712-9", "nome": "JEFFERSON BORGES BELMIRO DOS SANTOS", "ra": "N26011", "turma": "2ª E", "liberadoSegundaAula": true },
+  { "rg": "000111878938-6", "nome": "JONATHAN LIMA DE JESUS", "ra": "N26012", "turma": "2ª E", "liberadoSegundaAula": true },
+  { "rg": "000124489097-2", "nome": "RAFAELLA VITORIA RIOS ALVES", "ra": "N26013", "turma": "2ª E", "liberadoSegundaAula": true },
+  { "rg": "000110385221-8", "nome": "ANA CAROLINA DA SILVA DIAS", "ra": "N26014", "turma": "3ª B", "liberadoSegundaAula": true },
+  { "rg": "000112550639-8", "nome": "ANNY RAIANY MARCELINO DA SILVA", "ra": "N26015", "turma": "3ª B", "liberadoSegundaAula": true },
+  { "rg": "000111878084-X", "nome": "GUSTAVO HENRIQUE DOS SANTOS DE JESUS", "ra": "N26016", "turma": "3ª B", "liberadoSegundaAula": true },
+  { "rg": "000110403329-X", "nome": "RENAN ARTHUR INNOCENCIO DE MORAES", "ra": "N26017", "turma": "3ª B", "liberadoSegundaAula": true },
+  { "rg": "000112183892-3", "nome": "GUILHERME PAIN DE SOUZA", "ra": "N26018", "turma": "3ª B", "liberadoSegundaAula": true },
+  { "rg": "000111844942-3", "nome": "GEOVANNA DOS SANTOS SILVA", "ra": "N26019", "turma": "3ª B", "liberadoSegundaAula": true },
+  { "rg": "000113892805-7", "nome": "MARIA LUISA DA SILVA XAVIER", "ra": "N26020", "turma": "3ª B", "liberadoSegundaAula": true },
+  { "rg": "000113097182-X", "nome": "MARCELO WENDER MIRANDA RODRIGUES COSTA", "ra": "N26021", "turma": "3ª C", "liberadoSegundaAula": true },
+  { "rg": "000112360623-7", "nome": "KETHELLYN DOS SANTOS CAJANO", "ra": "N26022", "turma": "3ª C", "liberadoSegundaAula": true },
+  { "rg": "000110358351-7", "nome": "KAUE DAS NEVES SOUSA DA SILVA", "ra": "N26023", "turma": "3ª C", "liberadoSegundaAula": true },
+  { "rg": "000110413405-6", "nome": "JOSE HENRIQUE FERREIRA PEREIRA DA SILVA", "ra": "N26024", "turma": "3ª C", "liberadoSegundaAula": true },
+  { "rg": "000111838874-4", "nome": "RENAN SILVA SOUZA", "ra": "N26025", "turma": "3ª D", "liberadoSegundaAula": true },
+  { "rg": "000110379588-0", "nome": "JOANNA AZEVEDO DOS SANTOS", "ra": "N26026", "turma": "3ª D", "liberadoSegundaAula": true },
+  { "rg": "000111836580-X", "nome": "RAYSSA RAKELLY RODRIGUES PORTAS", "ra": "N26027", "turma": "3ª D", "liberadoSegundaAula": true },
+  { "rg": "000111844999-X", "nome": "GLORIA STEPHANY PEREIRA DA SILVA", "ra": "N26028", "turma": "3ª D", "liberadoSegundaAula": true },
+  { "rg": "000113269559-4", "nome": "JULIA DE LIMA PINHEIRO", "ra": "N26029", "turma": "3ª D", "liberadoSegundaAula": true },
+  { "rg": "000112793347-4", "nome": "LUCAS VINICIUS DA SILVA SOUZA", "ra": "N26030", "turma": "3ª E", "liberadoSegundaAula": true },
+  { "rg": "000111878754-7", "nome": "RUAN ALDO FERREIRA DO AMARAL", "ra": "N26031", "turma": "3ª E", "liberadoSegundaAula": true },
+  { "rg": "000113493367-8", "nome": "DOUGLAS FREIRE DE MELO", "ra": "N26032", "turma": "3ª E", "liberadoSegundaAula": true },
+  { "rg": "000112884576-3", "nome": "MARCELLA DELAMARE VIEIRA GARCIA", "ra": "N26033", "turma": "3ª E", "liberadoSegundaAula": true },
+  { "rg": "000112606661-8", "nome": "BEATRYZ GONCALVES DA SILVA BRUM", "ra": "N26034", "turma": "3ª E", "liberadoSegundaAula": true },
+  { "rg": "000111836491-0", "nome": "GABRIELE DA SILVA SANTOS", "ra": "N26035", "turma": "3ª E", "liberadoSegundaAula": true }
 ]
