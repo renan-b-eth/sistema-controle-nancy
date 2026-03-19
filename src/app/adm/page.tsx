@@ -13,6 +13,7 @@ interface Entrada {
   aula_numero: number;
   status: 'pendente' | 'liberado' | 'bloqueado' | 'direcao';
   nome_aluno: string;
+  ra_aluno: string;
   rg_aluno: string;
   turma_aluno: string;
   protocolo: string;
@@ -31,6 +32,21 @@ export default function AdmDashboard() {
     audio.play().catch(e => console.error("Erro ao tocar som:", e));
   };
 
+  const carregarEntradas = async (dataParaFiltrar: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('entradas')
+        .select('*')
+        .eq('data', dataParaFiltrar)
+        .order('horario', { ascending: false });
+
+      if (error) throw error;
+      setEntradas(data || []);
+    } catch (e) {
+      console.error("Erro ao carregar do Supabase:", e);
+    }
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -45,7 +61,7 @@ export default function AdmDashboard() {
     }
 
     setUser(parsedUser);
-    carregarEntradas();
+    carregarEntradas(filtroData);
 
     // Ouvir novos registros em tempo real
     const channel = supabase
@@ -58,7 +74,9 @@ export default function AdmDashboard() {
           table: 'entradas'
         },
         (payload: any) => {
-          if (payload.new.status === 'pendente') {
+          // Só adiciona em tempo real se a data for hoje
+          const hoje = new Date().toISOString().split('T')[0];
+          if (payload.new.status === 'pendente' && payload.new.data === hoje) {
             playNotificationSound();
             setEntradas(prev => [payload.new as Entrada, ...prev]);
           }
@@ -80,22 +98,7 @@ export default function AdmDashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [router]);
-
-  const carregarEntradas = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('entradas')
-        .select('*')
-        .eq('data', filtroData)
-        .order('horario', { ascending: false });
-
-      if (error) throw error;
-      setEntradas(data || []);
-    } catch (e) {
-      console.error("Erro ao carregar do Supabase:", e);
-    }
-  };
+  }, [router, filtroData]);
 
   const atualizarStatus = async (id: string, novoStatus: 'liberado' | 'bloqueado' | 'direcao') => {
     try {
@@ -105,7 +108,6 @@ export default function AdmDashboard() {
         .eq('id', id);
 
       if (error) throw error;
-      // O estado será atualizado pelo listener do Supabase (on UPDATE)
     } catch (e) {
       alert("Erro ao atualizar status.");
     }
@@ -119,7 +121,7 @@ export default function AdmDashboard() {
   const imprimirPDF = (e: Entrada) => {
     gerarPDFAssinatura({
       nome: e.nome_aluno,
-      ra: 'N/A',
+      ra: e.ra_aluno,
       rg: e.rg_aluno,
       turma: e.turma_aluno,
       data: e.data,
@@ -183,8 +185,9 @@ export default function AdmDashboard() {
                     type="date"
                     value={filtroData}
                     onChange={(e) => {
-                      setFiltroData(e.target.value);
-                      carregarEntradas();
+                      const novaData = e.target.value;
+                      setFiltroData(novaData);
+                      carregarEntradas(novaData);
                     }}
                     className="bg-transparent border-none focus:ring-0 text-sm font-bold text-gray-700"
                   />

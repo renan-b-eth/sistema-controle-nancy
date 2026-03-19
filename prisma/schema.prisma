@@ -33,6 +33,7 @@ model Entrada {
   status       String   // "liberado", "bloqueado", "direcao"
   protocolo    String   @unique
   nome_aluno   String   @map("nome_aluno")
+  ra_aluno     String   @map("ra_aluno")
   rg_aluno     String   @map("rg_aluno")
   turma_aluno  String   @map("turma_aluno")
   created_at   DateTime @default(now()) @map("created_at")

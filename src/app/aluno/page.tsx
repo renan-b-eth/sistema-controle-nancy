@@ -111,6 +111,7 @@ export default function AlunoDashboard() {
         status: 'pendente',
         protocolo: protocolo,
         nome_aluno: u.name,
+        ra_aluno: u.ra,
         rg_aluno: u.rg,
         turma_aluno: u.turma
       });
