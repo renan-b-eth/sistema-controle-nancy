@@ -1,0 +1,37 @@
+[
+  {
+    "rg": "000111738164-X",
+    "nome": "DAVI DE MATOS FONSECA",
+    "ra": "N2026001",
+    "turma": "2ª A",
+    "liberadoSegundaAula": true
+  },
+  {
+    "rg": "000112274129-7",
+    "nome": "GUSTAVO VIEIRA DA SILVA",
+    "ra": "N2026002",
+    "turma": "2ª B",
+    "liberadoSegundaAula": true
+  },
+  {
+    "rg": "000113380121-3",
+    "nome": "JOAO VICTOR PEREIRA RODRIGUES",
+    "ra": "N2026003",
+    "turma": "2ª B",
+    "liberadoSegundaAula": true
+  },
+  {
+    "rg": "000113183044-1",
+    "nome": "KERRISON LIMA RIBEIRO",
+    "ra": "N2026004",
+    "turma": "2ª B",
+    "liberadoSegundaAula": true
+  },
+  {
+    "rg": "000112164941-5",
+    "nome": "ALANA GAMA DE ARAUJO",
+    "ra": "N2026005",
+    "turma": "2ª D",
+    "liberadoSegundaAula": true
+  }
+]
