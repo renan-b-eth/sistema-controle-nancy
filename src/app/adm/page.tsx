@@ -66,13 +66,13 @@ export default function AdmDashboard() {
 
   const imprimirPDF = (e: Entrada) => {
     gerarPDFAssinatura({
-      nome: e.nome,
-      ra: e.ra,
-      rg: e.rg,
-      turma: e.turma,
+      nome: e.nome_aluno,
+      ra: 'N/A',
+      rg: e.rg_aluno,
+      turma: e.turma_aluno,
       data: e.data,
       horario: e.horario,
-      aulaNumero: e.aulaNumero
+      aulaNumero: e.aula_numero
     });
   };
 
@@ -154,12 +154,12 @@ export default function AdmDashboard() {
                       entradasFiltradas.map(e => (
                         <tr key={e.id} className="hover:bg-blue-50/30 transition-colors">
                           <td className="p-4">
-                            <p className="font-bold text-gray-800">{e.nome}</p>
-                            <p className="text-xs text-gray-500">RA: {e.ra} | RG: {e.rg} | {e.turma}</p>
+                            <p className="font-bold text-gray-800">{e.nome_aluno}</p>
+                            <p className="text-xs text-gray-500">RG: {e.rg_aluno} | {e.turma_aluno}</p>
                           </td>
                           <td className="p-4">
                             <p className="font-bold text-gray-700">{e.horario}</p>
-                            <p className="text-xs text-blue-600 font-bold uppercase">{e.aulaNumero}ª Aula</p>
+                            <p className="text-xs text-blue-600 font-bold uppercase">{e.aula_numero}ª Aula</p>
                           </td>
                           <td className="p-4">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
