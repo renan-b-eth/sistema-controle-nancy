@@ -23,6 +23,8 @@ export default function AlunoDashboard() {
   const [user, setUser] = useState<any>(null);
   const [aulaAtual, setAulaAtual] = useState<Aula | null>(null);
   const [qrValue, setQrValue] = useState('');
+  const [statusAtual, setStatusAtual] = useState<'pendente' | 'liberado' | 'bloqueado' | 'direcao'>('pendente');
+  const [protocoloGerado, setProtocoloGerado] = useState('');
   const [processado, setProcessado] = useState(false);
   const router = useRouter();
 
@@ -45,7 +47,7 @@ export default function AlunoDashboard() {
     setQrValue(`${parsedUser.ra}-${Date.now()}`);
 
     if (!processado) {
-      registrarEGerarPDF(parsedUser, aula);
+      registrarSolicitacao(parsedUser, aula);
       setProcessado(true);
     }
 
@@ -55,65 +57,65 @@ export default function AlunoDashboard() {
     return () => clearInterval(interval);
   }, [router, processado]);
 
-  const registrarEGerarPDF = async (u: any, aula: Aula | null) => {
+  // Efeito para ouvir mudanças de status em tempo real
+  useEffect(() => {
+    if (!protocoloGerado || !user) return;
+
+    const channel = supabase
+      .channel(`status-${protocoloGerado}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'entradas',
+          filter: `protocolo=eq.${protocoloGerado}`
+        },
+        (payload: any) => {
+          const novoStatus = payload.new.status;
+          setStatusAtual(novoStatus);
+
+          if (novoStatus === 'liberado') {
+            gerarPDFAssinatura({
+              nome: user.name,
+              ra: user.ra,
+              rg: user.rg,
+              turma: user.turma,
+              data: payload.new.data,
+              horario: payload.new.horario,
+              aulaNumero: payload.new.aula_numero
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [protocoloGerado, user]);
+
+  const registrarSolicitacao = async (u: any, aula: Aula | null) => {
     if (!aula) return;
 
-    const dataAtual = new Date().toLocaleDateString();
     const horarioAtual = new Date().toLocaleTimeString();
     const protocolo = `PE-${Date.now()}`;
+    setProtocoloGerado(protocolo);
 
-    let status: 'liberado' | 'bloqueado' | 'direcao' = 'liberado';
-
-    if (aula.numero === 2 && !u.liberadoSegundaAula) {
-      status = 'bloqueado';
-    } else if (aula.numero >= 3) {
-      status = 'direcao';
-    }
-
-    // 1. Salvar no Supabase (Histórico Online)
+    // 1. Salvar no Supabase como PENDENTE
     try {
       await supabase.from('entradas').insert({
-        aluno_id: null, // Opcional se não linkar por ID agora
         data: new Date().toISOString().split('T')[0],
         horario: horarioAtual,
         aula_numero: aula.numero,
-        status: status,
+        status: 'pendente',
         protocolo: protocolo,
-        // Campos extras para facilitar visualização sem joins
         nome_aluno: u.name,
         rg_aluno: u.rg,
         turma_aluno: u.turma
       });
     } catch (e) {
-      console.error("Erro ao salvar no Supabase, mantendo local.");
-    }
-
-    // 2. Salvar Localmente (Backup)
-    const novaEntrada: Solicitacao = {
-      id: protocolo,
-      nome: u.name,
-      ra: u.ra,
-      rg: u.rg,
-      turma: u.turma,
-      data: dataAtual,
-      horario: horarioAtual,
-      aulaNumero: aula.numero,
-      status: status
-    };
-    const todas = JSON.parse(localStorage.getItem('portaoEdu_solicitacoes') || '[]');
-    localStorage.setItem('portaoEdu_solicitacoes', JSON.stringify([novaEntrada, ...todas]));
-
-    // 3. Gerar PDF
-    if (status !== 'direcao') {
-      gerarPDFAssinatura({
-        nome: u.name,
-        ra: u.ra,
-        rg: u.rg,
-        turma: u.turma,
-        data: dataAtual,
-        horario: horarioAtual,
-        aulaNumero: aula.numero
-      });
+      console.error("Erro ao salvar no Supabase:", e);
     }
   };
 
@@ -123,9 +125,6 @@ export default function AlunoDashboard() {
   };
 
   if (!user) return <p className="p-8 text-center">Carregando...</p>;
-
-  const bloqueadoSegunda = aulaAtual?.numero === 2 && !user.liberadoSegundaAula;
-  const redirecionarDirecao = aulaAtual && aulaAtual.numero >= 3;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
@@ -150,26 +149,33 @@ export default function AlunoDashboard() {
 
         {/* Alerta de Status */}
         <div className="mb-10">
-          {redirecionarDirecao ? (
-            <div className="p-8 bg-red-600 text-white rounded-3xl shadow-2xl shadow-red-200 animate-pulse border-4 border-red-500">
+          {statusAtual === 'pendente' ? (
+            <div className="p-8 bg-blue-600 text-white rounded-3xl shadow-2xl shadow-blue-200 animate-pulse border-4 border-blue-500">
+              <h2 className="text-3xl font-black uppercase mb-4 flex items-center">
+                <span className="mr-3 text-4xl">⏳</span> AGUARDANDO LIBERAÇÃO
+              </h2>
+              <p className="text-xl font-bold opacity-90 leading-relaxed">
+                Olá {user.name}, sua solicitação de entrada na <span className="underline">{aulaAtual?.numero}ª aula</span> foi enviada para Carlos/Ivone. 
+                <br />
+                <span className="bg-white text-blue-600 px-2 py-1 rounded mt-2 inline-block">AGUARDE UM MOMENTO...</span>
+              </p>
+            </div>
+          ) : statusAtual === 'direcao' ? (
+            <div className="p-8 bg-red-600 text-white rounded-3xl shadow-2xl shadow-red-200 border-4 border-red-500">
               <h2 className="text-3xl font-black uppercase mb-4 flex items-center">
                 <span className="mr-3 text-4xl">⚠️</span> ACESSO RESTRITO
               </h2>
               <p className="text-xl font-bold opacity-90 leading-relaxed">
-                Você chegou durante a <span className="underline">{aulaAtual?.numero}ª aula</span>. 
-                <br />
-                <span className="bg-white text-red-600 px-2 py-1 rounded mt-2 inline-block">VÁ IMEDIATAMENTE PARA A DIREÇÃO OU SECRETARIA.</span>
+                Você deve se dirigir à <span className="underline text-yellow-300">DIREÇÃO ou SECRETARIA</span> imediatamente para autorizar sua entrada.
               </p>
             </div>
-          ) : bloqueadoSegunda ? (
+          ) : statusAtual === 'bloqueado' ? (
             <div className="p-8 bg-orange-500 text-white rounded-3xl shadow-2xl shadow-orange-200 border-4 border-orange-400">
               <h2 className="text-3xl font-black uppercase mb-4 flex items-center">
-                <span className="mr-3 text-4xl">🚫</span> ENTRADA BLOQUEADA
+                <span className="mr-3 text-4xl">🚫</span> ENTRADA NEGADA
               </h2>
               <p className="text-xl font-bold opacity-90 leading-relaxed">
-                Você não possui autorização para entrar na <span className="underline">2ª aula</span>. 
-                <br />
-                Procure a equipe de inspeção ou a direção.
+                Sua entrada não foi autorizada pela equipe escolar para este horário.
               </p>
             </div>
           ) : (

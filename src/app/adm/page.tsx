@@ -11,7 +11,7 @@ interface Entrada {
   data: string;
   horario: string;
   aula_numero: number;
-  status: 'liberado' | 'bloqueado' | 'direcao';
+  status: 'pendente' | 'liberado' | 'bloqueado' | 'direcao';
   nome_aluno: string;
   rg_aluno: string;
   turma_aluno: string;
@@ -24,6 +24,12 @@ export default function AdmDashboard() {
   const [entradas, setEntradas] = useState<Entrada[]>([]);
   const [filtroData, setFiltroData] = useState(new Date().toISOString().split('T')[0]);
   const router = useRouter();
+
+  // Som de notificação
+  const playNotificationSound = () => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch(e => console.error("Erro ao tocar som:", e));
+  };
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -40,6 +46,40 @@ export default function AdmDashboard() {
 
     setUser(parsedUser);
     carregarEntradas();
+
+    // Ouvir novos registros em tempo real
+    const channel = supabase
+      .channel('novas-entradas')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'entradas'
+        },
+        (payload: any) => {
+          if (payload.new.status === 'pendente') {
+            playNotificationSound();
+            setEntradas(prev => [payload.new as Entrada, ...prev]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'entradas'
+        },
+        (payload: any) => {
+          setEntradas(prev => prev.map(e => e.id === payload.new.id ? payload.new as Entrada : e));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [router]);
 
   const carregarEntradas = async () => {
@@ -54,8 +94,20 @@ export default function AdmDashboard() {
       setEntradas(data || []);
     } catch (e) {
       console.error("Erro ao carregar do Supabase:", e);
-      const todas = JSON.parse(localStorage.getItem('portaoEdu_solicitacoes') || '[]');
-      setEntradas(todas);
+    }
+  };
+
+  const atualizarStatus = async (id: string, novoStatus: 'liberado' | 'bloqueado' | 'direcao') => {
+    try {
+      const { error } = await supabase
+        .from('entradas')
+        .update({ status: novoStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      // O estado será atualizado pelo listener do Supabase (on UPDATE)
+    } catch (e) {
+      alert("Erro ao atualizar status.");
     }
   };
 
@@ -77,8 +129,9 @@ export default function AdmDashboard() {
   };
 
   const entradasFiltradas = entradas.filter(e => {
-    const dataFormatada = new Date(filtroData + 'T00:00:00').toLocaleDateString();
-    return e.data === dataFormatada;
+    // Se a data do filtro for hoje, mostramos todos os do estado (que inclui o tempo real)
+    // Se for outra data, o carregarEntradas já filtrou
+    return true; // Simplificado pois o carregarEntradas já lida com a data inicial e o tempo real é para o dia atual
   });
 
   if (!user) return <p className="p-8 text-center">Carregando...</p>;
@@ -129,7 +182,10 @@ export default function AdmDashboard() {
                   <input
                     type="date"
                     value={filtroData}
-                    onChange={(e) => setFiltroData(e.target.value)}
+                    onChange={(e) => {
+                      setFiltroData(e.target.value);
+                      carregarEntradas();
+                    }}
                     className="bg-transparent border-none focus:ring-0 text-sm font-bold text-gray-700"
                   />
                 </div>
@@ -142,7 +198,7 @@ export default function AdmDashboard() {
                       <th className="p-4">Aluno / Turma</th>
                       <th className="p-4">Horário / Aula</th>
                       <th className="p-4">Status</th>
-                      <th className="p-4 text-center">Documento</th>
+                      <th className="p-4 text-center">Ações / Documento</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -152,7 +208,7 @@ export default function AdmDashboard() {
                       </tr>
                     ) : (
                       entradasFiltradas.map(e => (
-                        <tr key={e.id} className="hover:bg-blue-50/30 transition-colors">
+                        <tr key={e.id} className={`transition-colors ${e.status === 'pendente' ? 'bg-blue-50 animate-pulse' : 'hover:bg-gray-50'}`}>
                           <td className="p-4">
                             <p className="font-bold text-gray-800">{e.nome_aluno}</p>
                             <p className="text-xs text-gray-500">RG: {e.rg_aluno} | {e.turma_aluno}</p>
@@ -164,19 +220,37 @@ export default function AdmDashboard() {
                           <td className="p-4">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
                               e.status === 'liberado' ? 'bg-green-100 text-green-700' : 
+                              e.status === 'pendente' ? 'bg-blue-600 text-white' :
                               e.status === 'bloqueado' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
                             }`}>
                               {e.status === 'direcao' ? 'Encaminhado Direção' : e.status}
                             </span>
                           </td>
                           <td className="p-4 text-center">
-                            {e.status !== 'direcao' && (
-                              <button 
-                                onClick={() => imprimirPDF(e)}
-                                className="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors"
-                              >
-                                🖨️ Re-imprimir
-                              </button>
+                            {e.status === 'pendente' ? (
+                              <div className="flex space-x-2 justify-center">
+                                <button 
+                                  onClick={() => atualizarStatus(e.id, 'liberado')}
+                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg transition-all"
+                                >
+                                  ✅ Liberar
+                                </button>
+                                <button 
+                                  onClick={() => atualizarStatus(e.id, 'direcao')}
+                                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-all"
+                                >
+                                  Direção
+                                </button>
+                              </div>
+                            ) : (
+                              e.status === 'liberado' && (
+                                <button 
+                                  onClick={() => imprimirPDF(e)}
+                                  className="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors"
+                                >
+                                  🖨️ Re-imprimir
+                                </button>
+                              )
                             )}
                           </td>
                         </tr>
