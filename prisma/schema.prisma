@@ -6,31 +6,38 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  url       = env("SUPABASE_DB_URL")
 }
 
 model Aluno {
-  id                   String    @id @default(cuid())
-  nome                 String
-  rg                   String    @unique
-  ra                   String    @unique
-  turma                String
-  liberadoSegundaAula  Boolean   @default(true)
-  entradas             Entrada[]
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  nome                  String
+  rg                    String    @unique
+  ra                    String    @unique
+  turma                 String
+  liberado_segunda_aula Boolean   @default(true) @map("liberado_segunda_aula")
+  entradas              Entrada[]
+  created_at            DateTime  @default(now()) @map("created_at")
+  updated_at            DateTime  @updatedAt @map("updated_at")
+
+  @@map("alunos")
 }
 
 model Entrada {
-  id          String   @id @default(cuid())
-  alunoId     String
-  aluno       Aluno    @relation(fields: [alunoId], references: [id])
-  data        DateTime @default(now())
-  horario     String   // Formato HH:mm:ss
-  aulaNumero  Int
-  status      String   // "liberado", "bloqueado", "direcao"
-  protocolo   String   @unique
+  id           String   @id @default(cuid())
+  aluno_id     String?  @map("aluno_id")
+  aluno        Aluno?   @relation(fields: [aluno_id], references: [id])
+  data         String   // No formato YYYY-MM-DD conforme o código
+  horario      String   // Formato HH:mm:ss
+  aula_numero  Int      @map("aula_numero")
+  status       String   // "liberado", "bloqueado", "direcao"
+  protocolo    String   @unique
+  nome_aluno   String   @map("nome_aluno")
+  rg_aluno     String   @map("rg_aluno")
+  turma_aluno  String   @map("turma_aluno")
+  created_at   DateTime @default(now()) @map("created_at")
+
+  @@map("entradas")
 }
 
 model Admin {
@@ -38,4 +45,6 @@ model Admin {
   nome  String
   email String @unique
   senha String
+
+  @@map("admins")
 }
