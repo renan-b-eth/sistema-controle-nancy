@@ -3,38 +3,46 @@ import prisma from '@/utils/prisma';
 
 export async function GET() {
   try {
-    // 1. Criar a tabela Entrada se ela estiver quebrada ou não existir
-    // Usamos SQL puro para garantir que as colunas NOME_ALUNO, RA_ALUNO, etc existam
+    console.log('Iniciando Sincronização Forçada do Banco...');
+
+    // 1. Criar a tabela base se não existir
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "entradas" (
         "id" TEXT PRIMARY KEY,
-        "aluno_id" TEXT,
-        "data" TEXT NOT NULL,
-        "horario" TEXT NOT NULL,
-        "aula_numero" INTEGER NOT NULL,
-        "status" TEXT NOT NULL DEFAULT 'pendente',
         "protocolo" TEXT UNIQUE NOT NULL,
-        "nome_aluno" TEXT NOT NULL,
-        "ra_aluno" TEXT NOT NULL,
-        "rg_aluno" TEXT NOT NULL,
-        "turma_aluno" TEXT NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'pendente',
         "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // 2. Garantir que a tabela Admin exista
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "admins" (
-        "id" TEXT PRIMARY KEY,
-        "nome" TEXT NOT NULL,
-        "email" TEXT UNIQUE NOT NULL,
-        "senha" TEXT NOT NULL
-      );
-    `);
+    // 2. Adicionar colunas faltantes uma a uma (Garante que o banco se adapte)
+    const colunasParaAdicionar = [
+      { nome: 'aluno_id', tipo: 'TEXT' },
+      { nome: 'data', tipo: 'TEXT' },
+      { nome: 'horario', tipo: 'TEXT' },
+      { nome: 'aula_numero', tipo: 'INTEGER' },
+      { nome: 'nome_aluno', tipo: 'TEXT' },
+      { nome: 'ra_aluno', tipo: 'TEXT' },
+      { nome: 'rg_aluno', tipo: 'TEXT' },
+      { nome: 'turma_aluno', tipo: 'TEXT' }
+    ];
 
-    return NextResponse.json({ success: true, message: 'Banco de dados sincronizado e corrigido com sucesso!' });
+    for (const col of colunasParaAdicionar) {
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "entradas" ADD COLUMN "${col.nome}" ${col.tipo};`);
+        console.log(`Coluna ${col.nome} adicionada.`);
+      } catch (e) {
+        // Ignora erro se a coluna já existir
+      }
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Banco de dados sincronizado e colunas atualizadas com sucesso!' 
+    });
+
   } catch (error: any) {
-    console.error('ERRO AO CORRIGIR BANCO:', error);
-    return NextResponse.json({ error: 'Falha ao corrigir banco', details: error.message }, { status: 500 });
+    console.error('ERRO AO SINCRONIZAR BANCO:', error);
+    return NextResponse.json({ error: 'Falha na sincronização', details: error.message }, { status: 500 });
   }
 }

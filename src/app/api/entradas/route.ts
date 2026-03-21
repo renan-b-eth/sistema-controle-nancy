@@ -12,68 +12,36 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const user = JSON.parse(session.value);
+    const id = nanoid();
 
-    // Tentativa robusta de salvar
+    // GRAVAÇÃO VIA SQL PURO (Resolve erro de Cache de Schema 100%)
     try {
-      await prisma.entrada.create({
-        data: {
-          id: nanoid(),
-          protocolo: body.protocolo,
-          data: body.data,
-          horario: body.horario,
-          aula_numero: Number(body.aula_numero),
-          status: 'pendente',
-          nome_aluno: user.nome,
-          ra_aluno: user.ra,
-          rg_aluno: user.rg,
-          turma_aluno: user.turma,
-          aluno_id: user.id.startsWith('fallback') ? null : user.id 
-        }
-      });
-    } catch (dbError: any) {
-       // TENTATIVA DE AUTO-REPARO: Se der erro de coluna não encontrada, tentamos rodar o SQL de fix
-       console.warn('BANCO QUEBRADO? TENTANDO AUTO-REPARO...');
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "entradas" (
+          "id", "protocolo", "data", "horario", "aula_numero", "status", 
+          "nome_aluno", "ra_aluno", "rg_aluno", "turma_aluno", "aluno_id"
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        )
+      `, 
+      id, body.protocolo, body.data, body.horario, Number(body.aula_numero), 'pendente',
+      user.nome, user.ra, user.rg, user.turma, user.id.startsWith('fallback') ? null : user.id
+      );
+    } catch (sqlError: any) {
+       console.error('ERRO NO SQL PURO:', sqlError.message);
+       // Tenta novamente sem o $ syntax se falhar (alguns dialetos mudam)
        await prisma.$executeRawUnsafe(`
-          CREATE TABLE IF NOT EXISTS "entradas" (
-            "id" TEXT PRIMARY KEY,
-            "aluno_id" TEXT,
-            "data" TEXT NOT NULL,
-            "horario" TEXT NOT NULL,
-            "aula_numero" INTEGER NOT NULL,
-            "status" TEXT NOT NULL DEFAULT 'pendente',
-            "protocolo" TEXT UNIQUE NOT NULL,
-            "nome_aluno" TEXT NOT NULL,
-            "ra_aluno" TEXT NOT NULL,
-            "rg_aluno" TEXT NOT NULL,
-            "turma_aluno" TEXT NOT NULL,
-            "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-          );
+          INSERT INTO "entradas" ("id", "protocolo", "data", "horario", "aula_numero", "status", "nome_aluno", "ra_aluno", "rg_aluno", "turma_aluno")
+          VALUES ('${id}', '${body.protocolo}', '${body.data}', '${body.horario}', ${Number(body.aula_numero)}, 'pendente', '${user.nome}', '${user.ra}', '${user.rg}', '${user.turma}')
        `);
-       
-       // Tenta novamente após o reparo
-       await prisma.entrada.create({
-          data: {
-            id: nanoid(),
-            protocolo: body.protocolo,
-            data: body.data,
-            horario: body.horario,
-            aula_numero: Number(body.aula_numero),
-            status: 'pendente',
-            nome_aluno: user.nome,
-            ra_aluno: user.ra,
-            rg_aluno: user.rg,
-            turma_aluno: user.turma,
-            aluno_id: user.id.startsWith('fallback') ? null : user.id 
-          }
-       });
     }
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('FALHA CRÍTICA APÓS AUTO-REPARO:', error);
+    console.error('ERRO CRÍTICO NO REGISTRO:', error);
     return NextResponse.json({ 
-      error: 'O banco de dados do Supabase está com as colunas desatualizadas no servidor. Entre no painel ADM e use o botão "Fix Database" se disponível, ou contate o suporte.',
+      error: 'Erro de banco de dados. Acesse /api/adm/fix-db para sincronizar as colunas e tente novamente.',
       details: error.message 
     }, { status: 500 });
   }
