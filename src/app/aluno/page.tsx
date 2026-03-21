@@ -19,14 +19,19 @@ export default function AlunoDashboard() {
   const [termoAceito, setTermoAceito] = useState(false);
   const router = useRouter();
 
-  // 1. Inicialização e Proteção de Rota
+  // 1. Inicialização e Proteção de Rota Rigorosa
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       router.replace('/login');
       return;
     }
-    setUser(JSON.parse(storedUser));
+    const parsed = JSON.parse(storedUser);
+    if (parsed.profile !== 'Aluno') {
+      router.replace('/login');
+      return;
+    }
+    setUser(parsed);
     setMounted(true);
   }, [router]);
 
@@ -56,10 +61,8 @@ export default function AlunoDashboard() {
         try {
           const res = await fetch('/api/adm/config');
           const config = await res.json();
-          if (config.bypass) {
-            aula = { numero: 1, inicio: 'TESTE', fim: 'TESTE' };
-          }
-        } catch (e) { console.error("Erro config:", e); }
+          if (config.bypass) aula = { numero: 1, inicio: 'TESTE', fim: 'TESTE' };
+        } catch (e) {}
       }
 
       if (aula) {
@@ -72,36 +75,23 @@ export default function AlunoDashboard() {
           const response = await fetch('/api/entradas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              protocolo, 
-              aula_numero: aula.numero, 
-              horario: new Date().toLocaleTimeString('pt-BR'), 
-              data: getDataEscolar() 
-            })
+            body: JSON.stringify({ protocolo, aula_numero: aula.numero, horario: new Date().toLocaleTimeString('pt-BR'), data: getDataEscolar() })
           });
-          
-          if (response.ok) {
-            setProcessado(true);
-          } else {
+          if (response.ok) setProcessado(true);
+          else {
             const errData = await response.json();
-            setErrorEnvio(errData.error || "Erro ao registrar entrada.");
-            setProcessado(true); 
+            setErrorEnvio(errData.error || "Erro ao registrar.");
+            setProcessado(true);
           }
-        } catch (e) {
-          setErrorEnvio("Falha na conexão com o servidor.");
-        }
-      } else {
-        setErrorEnvio("Sistema indisponível fora do horário escolar.");
-      }
+        } catch (e) { setErrorEnvio("Erro de servidor."); }
+      } else { setErrorEnvio("Sistema indisponível fora do horário."); }
     };
-
     prepararEntrada();
   }, [mounted, user, processado]);
 
   // Realtime
   useEffect(() => {
     if (!protocoloGerado || !supabase) return;
-
     const channel = supabase
       .channel(`canal-${protocoloGerado}`)
       .on('postgres_changes', { 
@@ -116,15 +106,11 @@ export default function AlunoDashboard() {
         }
       })
       .subscribe();
-
     const interval = setInterval(() => verificarStatusManual(protocoloGerado), 2000);
-
-    return () => { 
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
+    return () => { supabase.removeChannel(channel); clearInterval(interval); };
   }, [protocoloGerado, verificarStatusManual]);
 
+  // FINALIZAÇÃO E EXPULSÃO
   const finalizarSessaoEEntrar = async (status: 'assinado' | 'recusado') => {
     try {
       const res = await fetch('/api/entradas/signature', {
@@ -134,46 +120,34 @@ export default function AlunoDashboard() {
       });
       
       if (res.ok) {
+        // Mata a sessão no servidor e no navegador imediatamente
         await fetch('/api/auth/logout', { method: 'POST' });
         localStorage.removeItem('user');
+        
         setStatusAtual('liberado');
         setAssinaturaStatus(status);
+        
+        // Redireciona em 3 segundos para o login
         setTimeout(() => {
-          router.replace('/login');
+          router.push('/login');
         }, 3000);
       }
     } catch (e) { console.error(e); }
-  };
-
-  const handleLogoutManual = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    localStorage.removeItem('user');
-    router.replace('/login');
   };
 
   if (!mounted || !user) return null;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-10 font-sans relative overflow-hidden text-foreground">
-      <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-5%] right-[-5%] w-[30%] h-[30%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-
       <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
         
         <header className="flex justify-between items-center bg-card/70 backdrop-blur-xl p-6 rounded-[2rem] border border-border shadow-sm">
           <div className="flex items-center space-x-4">
-            <div className="bg-gradient-to-tr from-primary to-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20"><span className="text-white font-black text-xl italic">N</span></div>
-            <h1 className="text-xl font-black tracking-tight italic">PortãoEdu</h1>
+            <div className="bg-gradient-to-tr from-primary to-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"><span className="text-white font-black text-xl italic">N</span></div>
+            <h1 className="text-xl font-black italic">PortãoEdu</h1>
           </div>
-          <button onClick={handleLogoutManual} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest border border-red-100">Sair</button>
+          <button onClick={() => { localStorage.removeItem('user'); router.replace('/login'); }} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-black text-[10px] border border-red-100 uppercase">Sair</button>
         </header>
-
-        {errorEnvio && (
-          <div className="p-6 bg-red-500 text-white rounded-[2rem] shadow-xl animate-bounce flex items-center space-x-4 border-4 border-white">
-            <span className="text-3xl">⚠️</span>
-            <div><h3 className="font-black uppercase text-xs tracking-widest">Atenção</h3><p className="font-bold text-xs opacity-90">{errorEnvio}</p></div>
-          </div>
-        )}
 
         <section>
           {statusAtual === 'pendente' ? (
@@ -193,46 +167,43 @@ export default function AlunoDashboard() {
               
               {statusAtual === 'autorizado' ? (
                 <div className="bg-white/20 backdrop-blur-md p-6 sm:p-8 rounded-[2.5rem] border border-white/30 space-y-6">
-                  <p className="text-sm font-bold opacity-90 leading-relaxed">Carlos/Ivone já autorizaram sua entrada. Agora, dirija-se à coordenação para assinar o documento manual e confirme sua ciência abaixo:</p>
+                  <p className="text-sm font-bold opacity-90 leading-relaxed">Autorizado pela gestão. Assine o documento manual na coordenação e confirme abaixo para finalizar:</p>
                   <div className="bg-emerald-900/20 p-6 rounded-2xl border border-white/10 cursor-pointer" onClick={() => setTermoAceito(!termoAceito)}>
                     <label className="flex items-start space-x-4 cursor-pointer">
-                      <div className={`w-6 h-6 rounded-md border-2 border-white flex items-center justify-center transition-all ${termoAceito ? 'bg-white' : ''}`}>
-                        {termoAceito && <span className="text-emerald-600 font-black">✓</span>}
-                      </div>
-                      <span className="text-xs font-bold leading-tight flex-1">Eu entendo que cheguei atrasado, assinei o documento manualmente na coordenação e aceito as políticas da escola.</span>
+                      <div className={`w-6 h-6 rounded-md border-2 border-white flex items-center justify-center ${termoAceito ? 'bg-white' : ''}`}>{termoAceito && <span className="text-emerald-600 font-black">✓</span>}</div>
+                      <span className="text-xs font-bold leading-tight flex-1 italic">Eu entendo o atraso, assinei manualmente e aceito as políticas da escola.</span>
                     </label>
                   </div>
-                  <button disabled={!termoAceito} onClick={() => finalizarSessaoEEntrar('assinado')} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600 hover:scale-[1.02]' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Confirmar Entrada e Finalizar</button>
+                  <button disabled={!termoAceito} onClick={() => finalizarSessaoEEntrar('assinado')} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Confirmar e Entrar</button>
                 </div>
               ) : (
-                <div className="space-y-4 animate-fade-in">
+                <div className="space-y-4 animate-fade-in text-center">
                   <p className="text-2xl font-black uppercase italic tracking-tighter">Acesso Confirmado!</p>
-                  <p className="text-sm font-bold opacity-90">Registro concluído. Você será deslogado em instantes por segurança. Bom estudo!</p>
+                  <p className="text-sm font-bold opacity-90">Registro concluído. Voltando para a tela de login...</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="p-8 sm:p-12 bg-red-600 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in slide-in-from-top duration-500 relative overflow-hidden">
-              <h2 className="text-3xl font-black uppercase mb-4 tracking-tighter">🚨 ATENÇÃO!</h2>
-              <p className="text-xl font-black mb-4 uppercase">DIRIJA-SE À DIREÇÃO AGORA.</p>
+            <div className="p-8 sm:p-12 bg-red-600 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in slide-in-from-top duration-500 relative overflow-hidden text-center">
+              <h2 className="text-3xl font-black uppercase mb-4 tracking-tighter">🚨 DIRIJA-SE À DIREÇÃO</h2>
               <p className="text-sm font-bold opacity-90">Sua entrada deve ser tratada pessoalmente com a coordenação.</p>
             </div>
           )}
         </section>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-card p-10 rounded-[3rem] shadow-sm border border-border flex flex-col items-center justify-center text-center">
+          <div className="bg-card p-10 rounded-[3rem] border border-border flex flex-col items-center justify-center text-center">
             <h2 className="text-[10px] font-black text-secondary uppercase tracking-widest mb-8">Identidade Digital</h2>
             <div className="p-6 bg-white rounded-[2.5rem] border-2 border-border shadow-inner"><QRCodeCanvas value={qrValue} size={180} fgColor="#0f172a" /></div>
-            <p className="text-[10px] text-secondary mt-8 font-black uppercase flex items-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Live: Sincronizado</p>
+            <p className="text-[10px] text-secondary mt-8 font-black uppercase flex items-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Live</p>
           </div>
-          <div className="bg-card p-10 rounded-[3rem] shadow-sm border border-border relative flex flex-col justify-center">
-            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight border-l-4 border-primary pl-4 uppercase">Cartão de Acesso</h2>
+          <div className="bg-card p-10 rounded-[3rem] border border-border relative flex flex-col justify-center">
+            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight border-l-4 border-primary pl-4 uppercase italic">Acesso Escolar</h2>
             <div className="space-y-6">
-              <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">Aluno</p><p className="text-foreground text-lg font-black uppercase truncate">{user.nome}</p></div>
+              <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 text-foreground">Aluno</p><p className="text-foreground text-lg font-black uppercase truncate">{user.nome}</p></div>
               <div className="grid grid-cols-2 gap-6">
-                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">RA</p><p className="text-foreground text-lg font-black italic">{user.ra?.replace(/[-\s]/g, '')}</p></div>
-                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">Turma</p><p className="text-primary text-lg font-black italic">{user.turma}</p></div>
+                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 text-foreground">RA</p><p className="text-foreground text-lg font-black italic">{user.ra?.replace(/[-\s]/g, '')}</p></div>
+                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 text-foreground">Turma</p><p className="text-primary text-lg font-black italic">{user.turma}</p></div>
               </div>
             </div>
           </div>

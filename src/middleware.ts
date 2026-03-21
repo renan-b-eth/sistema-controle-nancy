@@ -5,45 +5,51 @@ export function middleware(request: NextRequest) {
   const sessionUser = request.cookies.get('session_user');
   const { pathname } = request.nextUrl;
 
-  // Se não houver sessão
+  // 1. SE NÃO ESTIVER LOGADO
   if (!sessionUser) {
-    // Redireciona tudo (Home, ADM, Aluno) para /login, exceto a própria página de login e arquivos estáticos
-    if (pathname === '/' || pathname.startsWith('/adm') || pathname.startsWith('/aluno')) {
+    // Redireciona TUDO para /login, exceto arquivos de sistema e a própria tela de login
+    if (pathname !== '/login' && !pathname.includes('.') && !pathname.startsWith('/api')) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
+    return NextResponse.next();
   }
 
-  // Se houver sessão, validar permissão de perfil (RBAC)
-  if (sessionUser) {
-    try {
-      const user = JSON.parse(sessionUser.value);
+  // 2. SE ESTIVER LOGADO
+  try {
+    const user = JSON.parse(sessionUser.value);
 
-      // 1. Aluno tentando entrar em ADM
-      if (pathname.startsWith('/adm') && user.profile !== 'ADM') {
+    // ADM continua com persistência normal
+    if (user.profile === 'ADM') {
+      if (pathname === '/login' || pathname === '/') {
+        return NextResponse.redirect(new URL('/adm', request.url));
+      }
+      return NextResponse.next();
+    }
+
+    // ALUNO: NUNCA redirecionar automaticamente para /aluno se ele estiver no /login
+    // Queremos forçar o login a cada nova tentativa de entrada.
+    if (user.profile === 'Aluno') {
+      // Se ele tentar entrar na ADM, manda pra sua área
+      if (pathname.startsWith('/adm')) {
         return NextResponse.redirect(new URL('/aluno', request.url));
       }
-
-      // 2. ADM tentando entrar em Aluno
-      if (pathname.startsWith('/aluno') && user.profile !== 'Aluno') {
-         return NextResponse.redirect(new URL('/adm', request.url));
-      }
-
-      // 3. Se logado tentar entrar na página de login ou home, vai para seu painel
+      
+      // Se ele estiver no login ou na home, DEIXA ele logar de novo (não redireciona pro dashboard)
+      // Isso permite que o próximo aluno use o aparelho sem ver o dashboard do anterior
       if (pathname === '/login' || pathname === '/') {
-        return user.profile === 'ADM' 
-          ? NextResponse.redirect(new URL('/adm', request.url))
-          : NextResponse.redirect(new URL('/aluno', request.url));
+        return NextResponse.next();
       }
-    } catch (e) {
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('session_user');
-      return response;
     }
+
+  } catch (e) {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('session_user');
+    return response;
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/adm/:path*', '/aluno/:path*', '/login', '/'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
