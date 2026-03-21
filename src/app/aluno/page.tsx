@@ -13,6 +13,7 @@ export default function AlunoDashboard() {
   const [qrValue, setQrValue] = useState('');
   const [statusAtual, setStatusAtual] = useState<'pendente' | 'liberado' | 'bloqueado' | 'direcao'>('pendente');
   const [protocoloGerado, setProtocoloGerado] = useState('');
+  const [assinaturaStatus, setAssinaturaStatus] = useState<'pendente' | 'assinado' | 'recusado'>('pendente');
   const [processado, setProcessado] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const router = useRouter();
@@ -35,34 +36,26 @@ export default function AlunoDashboard() {
     try {
       const { data, error } = await supabase
         .from('entradas')
-        .select('status, data, horario, aula_numero')
+        .select('status, data, horario, aula_numero, assinatura_status')
         .eq('protocolo', protocolo)
         .single();
 
       if (error) throw error;
 
-      if (data && data.status !== statusAtual) {
-        setStatusAtual(data.status);
+      if (data) {
+        if (data.status !== statusAtual) setStatusAtual(data.status);
+        if (data.assinatura_status !== assinaturaStatus) setAssinaturaStatus(data.assinatura_status);
         
-        if (data.status === 'liberado') {
+        if (data.status === 'liberado' && statusAtual === 'pendente') {
           showNotification("✅ ENTRADA LIBERADA!", "Prossiga imediatamente para sua sala de aula.");
-          gerarPDFAssinatura({
-            nome: user.nome,
-            ra: user.ra,
-            rg: user.rg,
-            turma: user.turma,
-            data: data.data,
-            horario: data.horario,
-            aulaNumero: data.aula_numero
-          });
-        } else if (data.status === 'direcao') {
+        } else if (data.status === 'direcao' && statusAtual === 'pendente') {
           showNotification("⚠️ ATENÇÃO!", "Dirija-se à DIREÇÃO ou Secretaria agora.");
         }
       }
     } catch (e) {
       console.error("Erro ao verificar status:", e);
     }
-  }, [statusAtual, user]);
+  }, [statusAtual, assinaturaStatus]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -101,33 +94,21 @@ export default function AlunoDashboard() {
         filter: `protocolo=eq.${protocoloGerado}` 
       }, (payload: any) => {
         const novoStatus = payload.new.status;
-        if (novoStatus !== statusAtual) {
-          setStatusAtual(novoStatus);
-          if (novoStatus === 'liberado') {
-            showNotification("✅ ENTRADA LIBERADA!", "Prossiga para sua sala de aula.");
-            gerarPDFAssinatura({
-              nome: user.nome,
-              ra: user.ra,
-              rg: user.rg,
-              turma: user.turma,
-              data: payload.new.data,
-              horario: payload.new.horario,
-              aulaNumero: payload.new.aula_numero
-            });
-          }
-        }
+        const novaAssinatura = payload.new.assinatura_status;
+        if (novoStatus !== statusAtual) setStatusAtual(novoStatus);
+        if (novaAssinatura !== assinaturaStatus) setAssinaturaStatus(novaAssinatura);
       })
       .subscribe();
 
     const interval = setInterval(() => {
       verificarStatus(protocoloGerado);
-    }, 5000);
+    }, 2000);
 
     return () => { 
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [protocoloGerado, user, statusAtual, verificarStatus]);
+  }, [protocoloGerado, statusAtual, assinaturaStatus, verificarStatus]);
 
   const registrarSolicitacao = async (u: any, aula: Aula) => {
     const horarioAtual = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -156,6 +137,31 @@ export default function AlunoDashboard() {
     }
   };
 
+  const atualizarAssinatura = async (status: 'assinado' | 'recusado') => {
+    try {
+      const res = await fetch('/api/entradas/signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ protocolo: protocoloGerado, status })
+      });
+      if (res.ok) {
+        setAssinaturaStatus(status);
+        if (status === 'assinado') {
+          gerarPDFAssinatura({
+            nome: user.nome,
+            ra: user.ra,
+            rg: user.rg,
+            turma: user.turma,
+            data: getDataEscolar(),
+            horario: new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+            aulaNumero: aulaAtual?.numero || 1,
+            status: statusAtual
+          });
+        }
+      }
+    } catch (e) { console.error(e); }
+  };
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('user');
@@ -163,7 +169,7 @@ export default function AlunoDashboard() {
   };
 
   if (!user) return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground font-sans">
       <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary"></div>
     </div>
   );
@@ -208,16 +214,12 @@ export default function AlunoDashboard() {
             <div className="p-8 sm:p-12 bg-primary text-white rounded-[3rem] shadow-2xl border-4 border-white relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">WAIT</div>
               <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
-                <span className="mr-4 animate-spin-slow">⏳</span> AGUARDANDO
+                <span className="mr-4 animate-spin-slow text-foreground">⏳</span> AGUARDANDO
               </h2>
               <p className="text-lg font-bold opacity-90 leading-relaxed max-w-xl relative z-10">
                 Olá {user.nome.split(' ')[0]}, sua solicitação para a <span className="bg-white/20 px-3 py-1 rounded-lg font-black">{aulaAtual?.numero || 1}ª aula</span> foi enviada. 
                 Aguarde a liberação pela gestão.
               </p>
-              <div className="mt-8 inline-flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 animate-pulse">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest">Monitoramento em tempo real ativo</span>
-              </div>
             </div>
           ) : statusAtual === 'liberado' ? (
             <div className="p-8 sm:p-12 bg-emerald-500 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in zoom-in duration-500 relative overflow-hidden">
@@ -225,14 +227,28 @@ export default function AlunoDashboard() {
               <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
                 <span className="mr-4 text-5xl">✅</span> LIBERADO!
               </h2>
-              <p className="text-xl font-black mb-4">PROSSIGA PARA SUA SALA DE AULA.</p>
-              <p className="text-sm font-bold opacity-90 max-w-xl">
-                Sua entrada foi autorizada. O comprovante digital foi gerado. Caso solicitado, apresente o PDF ou esta tela.
-              </p>
+              
+              {assinaturaStatus === 'pendente' ? (
+                <div className="bg-white/20 backdrop-blur-md p-6 rounded-3xl border border-white/30 space-y-4">
+                  <p className="text-sm font-black uppercase tracking-widest">Confirme sua entrada assinando digitalmente:</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button onClick={() => atualizarAssinatura('assinado')} className="py-4 bg-white text-emerald-600 rounded-2xl font-black uppercase text-xs hover:bg-emerald-50 transition-all">Assinar Documento</button>
+                    <button onClick={() => atualizarAssinatura('recusado')} className="py-4 bg-emerald-700/50 text-white rounded-2xl font-black uppercase text-xs hover:bg-emerald-800 transition-all">Recusar Assinatura</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-xl font-black mb-2 uppercase">Entrada Confirmada!</p>
+                  <p className="text-sm font-bold opacity-90 max-w-xl italic">
+                    {assinaturaStatus === 'assinado' ? 'Você assinou o documento. O comprovante PDF foi baixado automaticamente.' : 'Você recusou a assinatura. A ocorrência foi registrada no sistema.'}
+                  </p>
+                  <button onClick={() => window.location.reload()} className="px-6 py-2 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/30 transition-all">Baixar PDF Novamente</button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-8 sm:p-12 bg-red-600 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in slide-in-from-top duration-500 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">STOP</div>
+              <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic text-foreground">STOP</div>
               <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
                 <span className="mr-4 text-5xl">⚠️</span> ATENÇÃO!
               </h2>
@@ -257,7 +273,7 @@ export default function AlunoDashboard() {
             </div>
             <p className="text-[10px] text-secondary mt-8 font-black uppercase tracking-widest flex items-center">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
-              Atualizando em 30s
+              Live: {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </p>
           </div>
 
@@ -265,7 +281,7 @@ export default function AlunoDashboard() {
           <div className="bg-card p-10 rounded-[3rem] shadow-sm border border-border relative overflow-hidden flex flex-col justify-center">
             <div className="absolute top-0 right-0 p-8 text-6xl font-black text-foreground/5 pointer-events-none italic">Nancy</div>
             <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight relative border-l-4 border-primary pl-4">Cartão de Acesso</h2>
-            <div className="space-y-6 relative">
+            <div className="space-y-6 relative font-sans">
               <div className="grid grid-cols-2 gap-6">
                 <div className="col-span-2">
                   <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">Nome do Aluno</p>
@@ -273,17 +289,13 @@ export default function AlunoDashboard() {
                 </div>
                 <div>
                   <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">RA Escolar</p>
-                  <p className="text-foreground text-lg font-black italic">{user.ra.replace(/[-\s]/g, '')}</p>
+                  <p className="text-foreground text-lg font-black italic">{user.ra?.replace(/[-\s]/g, '')}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">Turma</p>
                   <p className="text-primary text-lg font-black italic">{user.turma}</p>
                 </div>
               </div>
-            </div>
-            <div className="mt-10 pt-6 border-t border-border flex justify-between items-center text-[10px] font-black text-secondary uppercase tracking-widest">
-              <span>Registro de Entrada</span>
-              <span className="text-foreground">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
           </div>
         </div>

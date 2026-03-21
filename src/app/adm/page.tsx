@@ -15,6 +15,8 @@ interface Entrada {
   ra_aluno: string;
   rg_aluno: string;
   turma_aluno: string;
+  autorizado_por?: string;
+  assinatura_status: 'pendente' | 'assinado' | 'recusado';
 }
 
 interface Aluno {
@@ -48,8 +50,15 @@ export default function AdmDashboard() {
       const response = await fetch(`/api/adm/entradas?data=${dataParaFiltrar}`);
       if (!response.ok) throw new Error('Erro na API');
       const data = await response.json();
-      if (data.some((e: any) => e.status === 'pendente')) playNotification();
-      setEntradas(data);
+      
+      // Verifica se há novas entradas pendentes para tocar o som
+      setEntradas(prev => {
+        const novasPendentes = data.filter((e: any) => 
+          e.status === 'pendente' && !prev.some(p => p.id === e.id && p.status === 'pendente')
+        );
+        if (novasPendentes.length > 0) playNotification();
+        return data;
+      });
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
 
@@ -72,7 +81,8 @@ export default function AdmDashboard() {
     carregarEntradas(filtroData);
     carregarAlunos();
 
-    const interval = setInterval(() => carregarEntradas(filtroData), 5000);
+    // Polling mais agressivo (2s) para parecer "live"
+    const interval = setInterval(() => carregarEntradas(filtroData), 2000);
     return () => clearInterval(interval);
   }, [filtroData, carregarEntradas, carregarAlunos, router]);
 
@@ -112,7 +122,7 @@ export default function AdmDashboard() {
     router.push('/login');
   };
 
-  if (!user) return <div className="flex h-screen items-center justify-center bg-background"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary"></div></div>;
+  if (!user) return <div className="flex h-screen items-center justify-center bg-background text-foreground"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary"></div></div>;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-10 font-sans">
@@ -129,8 +139,12 @@ export default function AdmDashboard() {
             </div>
           </div>
           <div className="flex space-x-3 w-full md:w-auto">
-            <button onClick={() => setMostraModal(true)} className="flex-1 md:flex-none px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">+ Aluno</button>
-            <button onClick={handleLogout} className="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100">Sair</button>
+            <div className="px-4 py-2 bg-background border border-border rounded-xl flex items-center space-x-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-[10px] font-black uppercase text-secondary">Logado como: {user.nome}</span>
+            </div>
+            <button onClick={() => setMostraModal(true)} className="px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">+ Aluno</button>
+            <button onClick={handleLogout} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100">Sair</button>
           </div>
         </header>
 
@@ -156,18 +170,8 @@ export default function AdmDashboard() {
 
         {/* Navigation Tabs */}
         <div className="flex bg-card p-1.5 rounded-[1.5rem] border border-border shadow-sm max-w-sm">
-          <button 
-            onClick={() => setActiveTab('entradas')} 
-            className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'entradas' ? 'bg-primary text-white shadow-lg' : 'text-secondary hover:bg-background'}`}
-          >
-            Monitoramento
-          </button>
-          <button 
-            onClick={() => setActiveTab('alunos')} 
-            className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'alunos' ? 'bg-primary text-white shadow-lg' : 'text-secondary hover:bg-background'}`}
-          >
-            Base Alunos
-          </button>
+          <button onClick={() => setActiveTab('entradas')} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'entradas' ? 'bg-primary text-white shadow-lg' : 'text-secondary hover:bg-background'}`}>Monitoramento</button>
+          <button onClick={() => setActiveTab('alunos')} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'alunos' ? 'bg-primary text-white shadow-lg' : 'text-secondary hover:bg-background'}`}>Base Alunos</button>
         </div>
 
         {/* Main Content Area */}
@@ -177,13 +181,7 @@ export default function AdmDashboard() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
                 <h2 className="text-2xl font-black text-foreground tracking-tight uppercase italic border-l-4 border-primary pl-4">Pedidos de Entrada</h2>
                 <div className="flex w-full sm:w-auto space-x-2">
-                   <input 
-                    type="date" 
-                    value={filtroData} 
-                    onChange={(e) => setFiltroData(e.target.value)} 
-                    className="bg-background border border-border rounded-xl px-4 py-3 font-bold text-xs outline-none focus:border-primary w-full" 
-                  />
-                  <button onClick={() => carregarEntradas(filtroData)} className="p-3 bg-background border border-border rounded-xl hover:bg-border transition-colors">🔄</button>
+                   <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} className="bg-background border border-border rounded-xl px-4 py-3 font-bold text-xs outline-none focus:border-primary w-full text-foreground" />
                 </div>
               </div>
               
@@ -194,13 +192,14 @@ export default function AdmDashboard() {
                     <tr className="border-b border-border text-[10px] font-black text-secondary uppercase tracking-[0.2em]">
                       <th className="pb-6 px-4">Aluno / Identificação</th>
                       <th className="pb-6 px-4">Horário / Aula</th>
+                      <th className="pb-6 px-4">Gestão / Assinatura</th>
                       <th className="pb-6 px-4 text-center">Status</th>
                       <th className="pb-6 px-4 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {entradas.length === 0 ? (
-                      <tr><td colSpan={4} className="py-20 text-center text-secondary font-black uppercase italic tracking-widest opacity-30">Nenhum registro encontrado</td></tr>
+                      <tr><td colSpan={5} className="py-20 text-center text-secondary font-black uppercase italic tracking-widest opacity-30">Nenhum registro encontrado</td></tr>
                     ) : entradas.map(e => (
                       <tr key={e.id} className="group hover:bg-background transition-all">
                         <td className="py-6 px-4">
@@ -210,6 +209,15 @@ export default function AdmDashboard() {
                         <td className="py-6 px-4">
                           <p className="text-sm font-black text-foreground">{e.horario}</p>
                           <p className="text-[9px] font-black text-primary uppercase tracking-widest">{e.aula_numero}ª Aula</p>
+                        </td>
+                        <td className="py-6 px-4">
+                          <div className="flex flex-col space-y-1">
+                            <p className="text-[10px] font-black text-foreground uppercase tracking-widest">{e.autorizado_por || '-'}</p>
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full inline-block w-fit ${
+                              e.assinatura_status === 'assinado' ? 'bg-emerald-100 text-emerald-600' : 
+                              e.assinatura_status === 'recusado' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'
+                            }`}>{e.assinatura_status}</span>
+                          </div>
                         </td>
                         <td className="py-6 px-4 text-center">
                           <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest inline-block ${
@@ -237,21 +245,31 @@ export default function AdmDashboard() {
               {/* Mobile Card List */}
               <div className="md:hidden space-y-4">
                 {entradas.length === 0 ? (
-                  <div className="py-20 text-center text-secondary font-black uppercase italic tracking-widest opacity-30">Vazio</div>
+                  <div className="py-20 text-center text-secondary font-black uppercase italic tracking-widest opacity-30 text-foreground">Vazio</div>
                 ) : entradas.map(e => (
                   <div key={e.id} className="p-6 bg-background rounded-3xl border border-border space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-black text-foreground text-sm uppercase">{e.nome_aluno}</p>
-                        <p className="text-[10px] font-bold text-secondary uppercase">RA: {e.ra_aluno} • {e.turma_aluno}</p>
+                        <p className="text-[10px] font-bold text-secondary uppercase tracking-tighter">RA: {e.ra_aluno} • {e.turma_aluno}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
                         e.status === 'liberado' ? 'bg-emerald-100 text-emerald-700' : e.status === 'pendente' ? 'bg-primary text-white' : 'bg-red-100 text-red-700'
                       }`}>{e.status}</span>
                     </div>
-                    <div className="flex justify-between items-center bg-card p-3 rounded-2xl border border-border">
-                      <p className="text-sm font-black text-foreground italic">{e.horario}</p>
-                      <p className="text-[9px] font-black text-primary uppercase">{e.aula_numero}ª Aula</p>
+                    <div className="grid grid-cols-2 gap-2 bg-card p-3 rounded-2xl border border-border">
+                      <div className="text-center border-r border-border">
+                        <p className="text-[8px] font-black text-secondary uppercase mb-1">Horário</p>
+                        <p className="text-xs font-black text-foreground">{e.horario}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[8px] font-black text-secondary uppercase mb-1">Aula</p>
+                        <p className="text-xs font-black text-primary">{e.aula_numero}ª</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-widest text-secondary pt-2">
+                       <span>Gestor: {e.autorizado_por || '-'}</span>
+                       <span className={e.assinatura_status === 'assinado' ? 'text-emerald-500' : e.assinatura_status === 'recusado' ? 'text-red-500' : ''}>{e.assinatura_status}</span>
                     </div>
                     <div className="pt-2">
                       {e.status === 'pendente' ? (
@@ -260,16 +278,7 @@ export default function AdmDashboard() {
                           <button onClick={() => atualizarStatus(e.id, 'direcao')} className="py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase">Direção</button>
                         </div>
                       ) : (
-                        <button onClick={() => gerarPDFAssinatura({ 
-                          nome: e.nome_aluno, 
-                          ra: e.ra_aluno, 
-                          rg: e.rg_aluno, 
-                          turma: e.turma_aluno, 
-                          data: e.data, 
-                          horario: e.horario, 
-                          aulaNumero: e.aula_numero, 
-                          status: e.status 
-                        })} className="w-full py-3 bg-foreground text-background rounded-xl font-black text-[10px] uppercase tracking-widest">Gerar Comprovante PDF</button>
+                        <button onClick={() => gerarPDFAssinatura({ nome: e.nome_aluno, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno, data: e.data, horario: e.horario, aulaNumero: e.aula_numero, status: e.status })} className="w-full py-3 bg-foreground text-background rounded-xl font-black text-[10px] uppercase tracking-widest">PDF Comprovante</button>
                       )}
                     </div>
                   </div>
@@ -280,13 +289,7 @@ export default function AdmDashboard() {
             <div className="p-6 sm:p-10 animate-fade-in">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
                 <h2 className="text-2xl font-black text-foreground tracking-tight uppercase italic border-l-4 border-primary pl-4">Base de Alunos</h2>
-                <input 
-                  type="text" 
-                  placeholder="Buscar aluno..." 
-                  value={busca} 
-                  onChange={(e) => setBusca(e.target.value)} 
-                  className="bg-background border border-border rounded-xl px-5 py-3 text-xs font-bold w-full sm:w-80 outline-none focus:border-primary shadow-inner" 
-                />
+                <input type="text" placeholder="Buscar aluno..." value={busca} onChange={(e) => setBusca(e.target.value)} className="bg-background border border-border rounded-xl px-5 py-3 text-xs font-bold w-full sm:w-80 outline-none focus:border-primary shadow-inner text-foreground" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {alunos.filter(a => a.nome.toLowerCase().includes(busca.toLowerCase())).map(aluno => (
@@ -316,28 +319,28 @@ export default function AdmDashboard() {
               <div className="flex justify-between items-center mb-10 border-b border-border pb-6">
                 <div>
                   <h3 className="text-3xl font-black text-foreground uppercase italic tracking-tighter">Novo Aluno</h3>
-                  <p className="text-[10px] text-secondary font-black uppercase tracking-widest mt-1">Cadastro de identificação escolar</p>
+                  <p className="text-[10px] text-secondary font-black uppercase tracking-widest mt-1 text-foreground">Cadastro de identificação escolar</p>
                 </div>
                 <button onClick={() => setMostraModal(false)} className="w-10 h-10 flex items-center justify-center text-secondary hover:text-foreground text-3xl font-light rounded-full hover:bg-background transition-all">×</button>
               </div>
               <form onSubmit={handleCadastrar} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">Nome Completo</label>
-                  <input required value={novoAluno.nome} onChange={e => setNovoAluno({...novoAluno, nome: e.target.value})} type="text" placeholder="Ex: Maria Eduarda Silva" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none" />
+                  <input required value={novoAluno.nome} onChange={e => setNovoAluno({...novoAluno, nome: e.target.value})} type="text" placeholder="Ex: Maria Eduarda Silva" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">RA Escolar</label>
-                    <input required value={novoAluno.ra} onChange={e => setNovoAluno({...novoAluno, ra: e.target.value})} type="text" placeholder="123456789" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none" />
+                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1 text-foreground">RA Escolar</label>
+                    <input required value={novoAluno.ra} onChange={e => setNovoAluno({...novoAluno, ra: e.target.value})} type="text" placeholder="123456789" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">RG</label>
-                    <input required value={novoAluno.rg} onChange={e => setNovoAluno({...novoAluno, rg: e.target.value})} type="text" placeholder="Só números" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none" />
+                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1 text-foreground">RG</label>
+                    <input required value={novoAluno.rg} onChange={e => setNovoAluno({...novoAluno, rg: e.target.value})} type="text" placeholder="Só números" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">Turma Atual</label>
-                  <input required value={novoAluno.turma} onChange={e => setNovoAluno({...novoAluno, turma: e.target.value})} type="text" placeholder="Ex: 3ª E" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none" />
+                  <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1 text-foreground">Turma Atual</label>
+                  <input required value={novoAluno.turma} onChange={e => setNovoAluno({...novoAluno, turma: e.target.value})} type="text" placeholder="Ex: 3ª E" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
                 </div>
                 <button type="submit" className="w-full py-5 bg-primary text-white rounded-[1.5rem] font-black uppercase shadow-xl shadow-primary/30 hover:bg-primary-hover hover:scale-[1.02] transition-all active:scale-95">SALVAR CADASTRO NO SISTEMA</button>
               </form>

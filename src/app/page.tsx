@@ -28,8 +28,9 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center space-x-8 text-xs font-black uppercase tracking-widest text-secondary">
             <a href="#funcionalidades" className="hover:text-primary transition-colors">Funcionalidades</a>
-            <a href="#sobre" className="hover:text-primary transition-colors">Sobre o Projeto</a>
-            <a href="#autor" className="hover:text-primary transition-colors">Desenvolvedor</a>
+            <a href="#projetos" className="hover:text-primary transition-colors">Projetos</a>
+            <a href="#sobre" className="hover:text-primary transition-colors">Sobre</a>
+            <a href="#autor" className="hover:text-primary transition-colors">Autor</a>
           </div>
           <Link href="/login" className="px-6 py-2.5 bg-foreground text-background rounded-full font-bold text-sm hover:bg-primary hover:text-white transition-all shadow-xl shadow-foreground/5 active:scale-95">
             Acessar Sistema
@@ -64,19 +65,6 @@ export default function LandingPage() {
                 VER MAIS
               </a>
             </div>
-            
-            <div className="flex items-center space-x-6 pt-8 border-t border-border/50">
-              <div className="flex -space-x-3">
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="w-10 h-10 rounded-full border-2 border-background bg-border flex items-center justify-center text-[10px] font-black">
-                    {i === 4 ? '+500' : '🎓'}
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-secondary">
-                Monitorando +400 alunos diariamente
-              </p>
-            </div>
           </div>
 
           <div className="relative animate-fade-in" style={{ animationDelay: '0.2s' }}>
@@ -85,24 +73,19 @@ export default function LandingPage() {
               <div className="grid grid-cols-2 gap-4 text-center">
                 <div className="p-8 bg-primary rounded-[2rem] text-white shadow-xl shadow-primary/20 transform group-hover:-translate-y-2 transition-transform">
                   <p className="text-[10px] font-black uppercase opacity-70 mb-2">Monitoramento</p>
-                  <p className="text-2xl font-black tracking-tighter italic">Live Flow</p>
+                  <p className="text-2xl font-black tracking-tighter italic text-white">Live Flow</p>
                 </div>
                 <div className="p-8 bg-foreground rounded-[2rem] text-background shadow-xl transform group-hover:translate-y-2 transition-transform">
                   <p className="text-[10px] font-black uppercase opacity-70 mb-2">Validação</p>
-                  <p className="text-2xl font-black tracking-tighter italic">QR-ID</p>
+                  <p className="text-2xl font-black tracking-tighter italic text-white">QR-ID</p>
                 </div>
                 <div className="col-span-2 p-8 sm:p-10 bg-background/80 border border-border rounded-[2rem] space-y-6">
                   <div className="flex justify-between items-center border-b border-border pb-4">
-                    <p className="font-black text-foreground uppercase text-[10px] tracking-widest">Relatório de Frequência</p>
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[8px] font-black uppercase">Sincronizado</span>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="w-full h-2 bg-border rounded-full overflow-hidden"><div className="w-3/4 h-full bg-primary rounded-full"></div></div>
-                    <div className="w-full h-2 bg-border rounded-full overflow-hidden"><div className="w-1/2 h-full bg-indigo-400 rounded-full"></div></div>
-                    <div className="w-full h-2 bg-border rounded-full overflow-hidden"><div className="w-4/5 h-full bg-emerald-400 rounded-full"></div></div>
+                    <p className="font-black text-foreground uppercase text-[10px] tracking-widest">Painel de Gestão</p>
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[8px] font-black uppercase italic">Carlos & Ivone On-line</span>
                   </div>
                   <p className="text-xs text-secondary font-medium text-left leading-relaxed">
-                    Interface otimizada para a gestão escolar visualizar entradas e saídas instantaneamente, com geração de comprovantes em PDF.
+                    Interface exclusiva para a gestão escolar liberar acessos e monitorar o status de assinatura de cada aluno em tempo real.
                   </p>
                 </div>
               </div>
@@ -111,18 +94,48 @@ export default function LandingPage() {
         </div>
       </main>
 
+      {/* Projetos Section */}
+      <section id="projetos" className="py-24 bg-foreground text-background overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-10 text-9xl font-black text-white/5 pointer-events-none italic">PROJECTS</div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="max-w-2xl space-y-4 mb-20">
+            <p className="text-primary font-black uppercase tracking-[0.4em] text-[10px]">Ecossistema de Inovação</p>
+            <h2 className="text-4xl sm:text-6xl font-black tracking-tighter italic uppercase leading-none">Minhas Iniciativas <br /> <span className="text-primary">Digitais</span></h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <a href="https://www.rendey.app" target="_blank" className="group p-10 bg-white/5 rounded-[3rem] border border-white/10 hover:bg-white/10 transition-all hover:scale-[1.02]">
+                <div className="flex justify-between items-start mb-8">
+                  <div className="p-4 bg-primary rounded-2xl text-3xl">🎓</div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">EdTech</span>
+                </div>
+                <h3 className="text-3xl font-black mb-4 italic uppercase">Rendey Class</h3>
+                <p className="text-white/60 font-medium leading-relaxed mb-8">Plataforma inovadora voltada para o engajamento e organização de salas de aula, transformando a experiência de aprendizado.</p>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/40 border-b border-white/20 pb-1 group-hover:text-primary group-hover:border-primary transition-all">rendey.app →</span>
+             </a>
+             <a href="https://www.estahack.com" target="_blank" className="group p-10 bg-white/5 rounded-[3rem] border border-white/10 hover:bg-white/10 transition-all hover:scale-[1.02]">
+                <div className="flex justify-between items-start mb-8">
+                  <div className="p-4 bg-indigo-500 rounded-2xl text-3xl">💻</div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">CyberSec</span>
+                </div>
+                <h3 className="text-3xl font-black mb-4 italic uppercase">Estahack</h3>
+                <p className="text-white/60 font-medium leading-relaxed mb-8">Portal focado em segurança ofensiva e desenvolvimento ético, unindo a comunidade de tecnologia em torno de desafios reais.</p>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/40 border-b border-white/20 pb-1 group-hover:text-indigo-400 group-hover:border-indigo-400 transition-all">estahack.com →</span>
+             </a>
+          </div>
+        </div>
+      </section>
+
       <section id="funcionalidades" className="py-24 bg-card border-y border-border overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="max-w-2xl mx-auto text-center space-y-4 mb-20">
             <h2 className="text-4xl sm:text-5xl font-black tracking-tighter text-foreground uppercase italic">Ecossistema Escolar</h2>
-            <p className="text-secondary font-medium">Três pilares fundamentais para uma gestão moderna e eficiente na portaria.</p>
             <div className="w-24 h-2 bg-primary mx-auto rounded-full"></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { title: 'Para a Gestão', desc: 'Carlos e Ivone têm controle total sobre quem entra, com alertas sonoros e visuais em tempo real.', icon: '🏢' },
-              { title: 'Para o Aluno', desc: 'Acesso rápido via QR Code dinâmico, garantindo agilidade e comprovante digital automático.', icon: '📱' },
-              { title: 'Para os Pais', desc: 'Segurança de saber que a escola possui um registro digital rigoroso de todos os fluxos.', icon: '👨‍👩‍👧' }
+              { title: 'Gestão Live', desc: 'Carlos e Ivone têm controle total, vendo instantaneamente quem logou e quem assinou.', icon: '🏢' },
+              { title: 'Assinatura Digital', desc: 'O aluno confirma sua entrada no próprio celular, garantindo validade jurídica e digital.', icon: '✍️' },
+              { title: 'Segurança Real', desc: 'Identificação por RA/RG e monitoramento constante contra acessos indevidos.', icon: '🛡️' }
             ].map((feature, i) => (
               <div key={i} className="p-10 bg-background rounded-[2.5rem] border border-border hover:shadow-2xl hover:border-primary/20 transition-all group">
                 <div className="text-5xl mb-8 group-hover:scale-125 group-hover:rotate-12 transition-transform inline-block">{feature.icon}</div>
@@ -130,25 +143,6 @@ export default function LandingPage() {
                 <p className="text-secondary font-medium leading-relaxed">{feature.desc}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="sobre" className="py-24 px-4 sm:px-6 overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-foreground text-background rounded-[4rem] p-8 sm:p-20 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-10 text-9xl font-black text-white/5 pointer-events-none italic">IMPACTO</div>
-            <div className="relative z-10 max-w-3xl space-y-8">
-              <h2 className="text-4xl sm:text-6xl font-black tracking-tighter leading-none italic uppercase">Educação + Tecnologia = Futuro</h2>
-              <p className="text-lg sm:text-xl text-white/70 font-medium leading-relaxed">
-                Este projeto nasceu da necessidade de modernizar os processos manuais da escola pública. O <span className="text-primary font-bold">PortãoEdu</span> não é apenas um software, é uma ferramenta de transformação social que otimiza o tempo pedagógico.
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 pt-10">
-                <div><p className="text-3xl font-black text-primary">100%</p><p className="text-[10px] font-black uppercase tracking-widest text-white/40">Digital</p></div>
-                <div><p className="text-3xl font-black text-indigo-400">Zero</p><p className="text-[10px] font-black uppercase tracking-widest text-white/40">Papel</p></div>
-                <div><p className="text-3xl font-black text-emerald-400">Real</p><p className="text-[10px] font-black uppercase tracking-widest text-white/40">Time</p></div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -164,11 +158,10 @@ export default function LandingPage() {
           </div>
           
           <div className="space-y-6">
-            <p className="text-primary font-black uppercase tracking-[0.5em] text-xs">Desenvolvido por</p>
-            <h2 className="text-5xl sm:text-6xl font-black tracking-tighter text-foreground italic uppercase">Renan Bezerra</h2>
-            <p className="text-secondary font-medium max-w-2xl mx-auto leading-relaxed text-lg sm:text-xl">
-              Engenheiro de Software Full-Stack, Educador e Visionário Digital. <br />
-              Dedicado a construir soluções que elevam o padrão da educação pública através da engenharia de software de alta performance.
+            <p className="text-primary font-black uppercase tracking-[0.5em] text-xs">Desenvolvedor e Fundador</p>
+            <h2 className="text-5xl sm:text-6xl font-black tracking-tighter text-foreground italic uppercase leading-none">Prof. Renan <br /> <span className="text-primary">Bezerra</span></h2>
+            <p className="text-secondary font-medium max-w-2xl mx-auto leading-relaxed text-lg sm:text-xl font-sans">
+              Especialista em Engenharia de Software e Segurança da Informação. Fundador da <strong>Rendey</strong> e do projeto <strong>Estahack</strong>, focado em criar tecnologias que resolvem problemas reais da educação brasileira.
             </p>
             <div className="flex justify-center space-x-4 pt-6">
               <a href="https://site-renanbezerra.vercel.app/" target="_blank" className="px-8 py-3 bg-card border border-border rounded-full font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-white transition-all">Portfolio</a>
@@ -177,10 +170,10 @@ export default function LandingPage() {
           </div>
           
           <div className="pt-20 border-t border-border w-full flex flex-col md:flex-row justify-between items-center gap-6 text-secondary text-[10px] font-black uppercase tracking-[0.3em]">
-            <div>PortãoEdu © 2026 • Todos os direitos reservados</div>
+            <div>PortãoEdu © 2026 • Nancy Management System</div>
             <div className="flex space-x-6">
               <span>E.E. Nancy de Oliveira Fidalgo</span>
-              <span className="text-primary">Mogi das Cruzes - SP</span>
+              <span className="text-primary">By Renan Bezerra</span>
             </div>
           </div>
         </div>

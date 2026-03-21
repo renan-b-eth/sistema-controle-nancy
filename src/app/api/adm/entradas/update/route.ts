@@ -13,13 +13,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
     }
 
-    // Atualização via PRISMA (Garante funcionamento total)
+    const adminData = JSON.parse(session.value);
+    const autorizadoPor = adminData.nome; // Carlos ou Ivone
+
+    // Atualização via PRISMA
     const atualizado = await prisma.entrada.update({
       where: { id },
-      data: { status }
+      data: { 
+        status,
+        autorizado_por: status === 'liberado' || status === 'direcao' ? autorizadoPor : null
+      }
     });
 
-    return NextResponse.json({ success: true, status: atualizado.status });
+    return NextResponse.json({ success: true, status: atualizado.status, autorizado_por: atualizado.autorizado_por });
 
   } catch (error: any) {
     console.error('ERRO AO ATUALIZAR STATUS:', error);
