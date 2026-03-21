@@ -66,17 +66,21 @@ export default function AlunoDashboard() {
       }
 
       if (aula) {
-        const protocolo = `PE-${Date.now()}`;
-        setProtocoloGerado(protocolo);
+        const protocoloFake = `PE-${Date.now()}`; // Envia um temporário, mas usa o do servidor depois
         
         const response = await fetch('/api/entradas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ protocolo, aula_numero: aula.numero, horario: new Date().toLocaleTimeString('pt-BR'), data: getDataEscolar() })
+          body: JSON.stringify({ protocolo: protocoloFake, aula_numero: aula.numero, horario: new Date().toLocaleTimeString('pt-BR'), data: getDataEscolar() })
         });
 
-        if (response.ok) setProcessado(true);
-        else {
+        if (response.ok) {
+          const data = await response.json();
+          // USAR O PROTOCOLO RETORNADO PELO SERVIDOR GARANTE A SINCRONIA CORRETA (MESMO SE JÁ EXISTIA)
+          setProtocoloGerado(data.protocolo);
+          setStatusAtual(data.status);
+          setProcessado(true);
+        } else {
           const errData = await response.json();
           setErrorEnvio(errData.error || "Erro no registro.");
           setProcessado(true);
