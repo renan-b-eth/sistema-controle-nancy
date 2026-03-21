@@ -80,7 +80,6 @@ export default function AlunoDashboard() {
     setProtocoloGerado(protocolo);
 
     try {
-      // CHAMADA PARA O BACK-END (Resolve o erro 100% via Prisma)
       const response = await fetch('/api/entradas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,6 +115,7 @@ export default function AlunoDashboard() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-10 font-sans">
       <div className="max-w-5xl mx-auto">
+        
         <header className="flex justify-between items-center mb-10 bg-white/70 backdrop-blur-md p-6 rounded-[2rem] border border-white/50 shadow-sm">
           <div className="flex items-center space-x-4">
             <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100">
@@ -145,9 +145,13 @@ export default function AlunoDashboard() {
               <h2 className="text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
                 <span className="mr-4 animate-bounce">⏳</span> AGUARDANDO
               </h2>
-              <p className="text-xl font-bold opacity-90 leading-relaxed max-w-2xl text-blue-50">
-                Olá {user.nome.split(' ')[0]}, sua entrada na <span className="bg-white/20 px-2 py-0.5 rounded">{aulaAtual?.numero}ª aula</span> foi enviada para a gestão na portaria. 
-                Mantenha esta tela aberta.
+              <p className="text-lg font-bold opacity-90 leading-relaxed max-w-2xl text-blue-50">
+                Olá {user.nome.split(' ')[0]}, sua solicitação para a <span className="bg-white/20 px-2 py-0.5 rounded font-black">{aulaAtual?.numero || body.aula_numero}ª aula</span> foi enviada com sucesso. 
+                <br /><br />
+                Aguarde a liberação que será realizada por <span className="underline font-black">Carlos ou Ivone</span>. 
+                Após a autorização, será gerado automaticamente um <span className="bg-white/20 px-2 py-0.5 rounded font-black text-sm">documento PDF para assinatura</span>, onde deverá constar a justificativa oficial pelo atraso na sua entrada na escola.
+                <br /><br />
+                <span className="text-xs font-black uppercase tracking-widest bg-blue-700 px-3 py-1 rounded-full animate-pulse">Mantenha esta tela aberta</span>
               </p>
             </div>
           ) : statusAtual === 'liberado' ? (
@@ -156,7 +160,7 @@ export default function AlunoDashboard() {
                 <span className="mr-4 text-5xl">✅</span> LIBERADO!
               </h2>
               <p className="text-xl font-bold opacity-90 leading-relaxed text-emerald-50">
-                Sua entrada foi autorizada. O comprovante foi gerado.
+                Sua entrada foi autorizada. O comprovante com o campo de assinatura foi gerado para impressão. Prossiga para a sala de aula.
               </p>
             </div>
           ) : (
@@ -165,7 +169,7 @@ export default function AlunoDashboard() {
                 <span className="mr-4">⚠️</span> ATENÇÃO
               </h2>
               <p className="text-xl font-bold opacity-90 leading-relaxed text-red-50">
-                Por favor, dirija-se à <span className="underline font-black">DIREÇÃO</span> ou secretaria.
+                Sua entrada requer atenção especial. Por favor, dirija-se à <span className="underline font-black text-yellow-300">DIREÇÃO</span> ou secretaria para liberação manual.
               </p>
             </div>
           )}
