@@ -23,13 +23,11 @@ export default function AdmDashboard() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'entradas' | 'alunos'>('entradas');
   const [entradas, setEntradas] = useState<Entrada[]>([]);
-  // Garantir data de Brasília
   const [filtroData, setFiltroData] = useState(new Date().toLocaleDateString('en-CA')); 
   const [loading, setLoading] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
 
-  // Função para tocar o som de alerta
   const playNotification = () => {
     if (audioRef.current) {
       audioRef.current.play().catch(e => console.log("Erro ao tocar som:", e));
@@ -47,9 +45,8 @@ export default function AdmDashboard() {
 
       if (error) throw error;
       
-      const novasEntradas = data || [];
+      const novasEntradas = (data || []) as Entrada[];
       
-      // Se houver mais entradas pendentes do que antes, toca o som
       const pendentesAtuais = entradas.filter((e: Entrada) => e.status === 'pendente').length;
       const novosPendentes = novasEntradas.filter((e: Entrada) => e.status === 'pendente').length;
       
@@ -69,25 +66,22 @@ export default function AdmDashboard() {
     const storedUser = localStorage.getItem('user');
     if (storedUser) setUser(JSON.parse(storedUser));
     
-    // Inicializar áudio (Som de sino/alerta)
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     
     carregarEntradas(filtroData);
 
-    // 1. Inscrição em Tempo Real (Supabase)
     const channel = supabase ? supabase
       .channel('schema-db-changes')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'entradas' 
-      }, (payload) => {
+      }, (payload: any) => {
          console.log('Mudança detectada:', payload);
          carregarEntradas(filtroData);
       })
       .subscribe() : null;
 
-    // 2. Polling de Segurança (A cada 5 segundos para ser bem rápido)
     const interval = setInterval(() => {
       carregarEntradas(filtroData);
     }, 5000);
@@ -119,11 +113,9 @@ export default function AdmDashboard() {
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans p-4 md:p-10">
       <div className="max-w-7xl mx-auto">
-        
-        {/* Header Superior */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+        <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
           <div className="flex items-center space-x-5">
-            <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-100 transform -rotate-3">
+            <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-100">
               <span className="text-white text-2xl font-black">N</span>
             </div>
             <div>
@@ -133,22 +125,11 @@ export default function AdmDashboard() {
           </div>
           
           <div className="flex items-center space-x-3 w-full md:w-auto">
-            <button 
-               onClick={() => gerarRelatorioGeral(entradas, filtroData)}
-               className="flex-1 md:flex-none px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
-            >
-              📊 Relatório PDF
-            </button>
-            <button 
-               onClick={handleLogout} 
-               className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all"
-            >
-              Sair
-            </button>
+            <button onClick={() => gerarRelatorioGeral(entradas, filtroData)} className="flex-1 md:flex-none px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">📊 Relatório PDF</button>
+            <button onClick={handleLogout} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">Sair</button>
           </div>
         </header>
 
-        {/* Resumo Rápido */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Hoje</p>
@@ -168,7 +149,6 @@ export default function AdmDashboard() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex space-x-2 mb-8 bg-slate-100/50 p-2 rounded-[2rem] border border-slate-200/50 max-w-md">
           <button onClick={() => setActiveTab('entradas')} className={`flex-1 py-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'entradas' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:bg-white/50'}`}>Acessos</button>
           <button onClick={() => setActiveTab('alunos')} className={`flex-1 py-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'alunos' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:bg-white/50'}`}>Alunos</button>
@@ -177,21 +157,16 @@ export default function AdmDashboard() {
         <main className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
           {activeTab === 'entradas' && (
             <div className="p-8 md:p-12">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+              <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
                 <h2 className="text-2xl font-black text-slate-800 tracking-tight">Registro de Movimentação</h2>
-                <input
-                  type="date"
-                  value={filtroData}
-                  onChange={(e) => setFiltroData(e.target.value)}
-                  className="bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-3 font-bold text-sm outline-none focus:border-blue-500 transition-all"
-                />
+                <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} className="bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-3 font-bold text-sm outline-none focus:border-blue-500 transition-all" />
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-separate border-spacing-y-4">
                   <thead>
                     <tr className="text-slate-400 uppercase text-[10px] font-black tracking-[0.2em]">
-                      <th className="px-6 py-2">Aluno / Dados Escolares</th>
+                      <th className="px-6 py-2">Aluno / Dados</th>
                       <th className="px-6 py-2">Horário / Aula</th>
                       <th className="px-6 py-2">Status</th>
                       <th className="px-6 py-2 text-center">Ações</th>
@@ -199,11 +174,11 @@ export default function AdmDashboard() {
                   </thead>
                   <tbody>
                     {loading ? (
-                       <tr><td colSpan={4} className="text-center py-20 text-slate-300 font-bold">Carregando dados...</td></tr>
+                       <tr><td colSpan={4} className="text-center py-20 text-slate-300 font-bold">Carregando...</td></tr>
                     ) : entradas.length === 0 ? (
-                       <tr><td colSpan={4} className="text-center py-20 text-slate-300 font-bold italic">Nenhum registro para esta data.</td></tr>
+                       <tr><td colSpan={4} className="text-center py-20 text-slate-300 font-bold italic">Vazio.</td></tr>
                     ) : entradas.map(e => (
-                      <tr key={e.id} className={`group bg-white hover:bg-slate-50 transition-all duration-300 shadow-sm border border-slate-50 rounded-3xl overflow-hidden ${e.status === 'pendente' ? 'ring-2 ring-orange-400 bg-orange-50/20' : ''}`}>
+                      <tr key={e.id} className={`group bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-50 rounded-3xl overflow-hidden ${e.status === 'pendente' ? 'ring-2 ring-orange-400 bg-orange-50/20' : ''}`}>
                         <td className="px-6 py-6 rounded-l-3xl">
                           <p className="font-black text-slate-800 uppercase text-sm tracking-tight">{e.nome_aluno}</p>
                           <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">RA: {e.ra_aluno} • {e.turma_aluno}</p>
@@ -217,9 +192,7 @@ export default function AdmDashboard() {
                             e.status === 'liberado' ? 'bg-emerald-100 text-emerald-700' : 
                             e.status === 'pendente' ? 'bg-orange-500 text-white animate-bounce shadow-lg shadow-orange-200' :
                             e.status === 'bloqueado' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                          }`}>
-                            {e.status}
-                          </span>
+                          }`}>{e.status}</span>
                         </td>
                         <td className="px-6 py-6 text-center rounded-r-3xl">
                           <div className="flex justify-center items-center space-x-2">
@@ -229,15 +202,7 @@ export default function AdmDashboard() {
                                 <button onClick={() => atualizarStatus(e.id, 'direcao')} className="h-12 px-4 bg-red-500 text-white rounded-2xl hover:bg-red-600 shadow-lg shadow-red-100 flex items-center justify-center transition-all active:scale-90 font-black text-[10px] uppercase">Direção</button>
                               </>
                             ) : (
-                              <button 
-                                onClick={() => gerarPDFAssinatura({
-                                  nome: e.nome_aluno, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno,
-                                  data: e.data, horario: e.horario, aulaNumero: e.aula_numero
-                                })} 
-                                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase hover:bg-slate-200 transition-all"
-                              >
-                                Imprimir
-                              </button>
+                              <button onClick={() => gerarPDFAssinatura({ nome: e.nome_aluno, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno, data: e.data, horario: e.horario, aulaNumero: e.aula_numero })} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase hover:bg-slate-200 transition-all">Imprimir</button>
                             )}
                           </div>
                         </td>
