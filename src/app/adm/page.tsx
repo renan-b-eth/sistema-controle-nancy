@@ -50,8 +50,8 @@ export default function AdmDashboard() {
       const novasEntradas = data || [];
       
       // Se houver mais entradas pendentes do que antes, toca o som
-      const pendentesAtuais = entradas.filter(e => e.status === 'pendente').length;
-      const novosPendentes = novasEntradas.filter(e => e.status === 'pendente').length;
+      const pendentesAtuais = entradas.filter((e: Entrada) => e.status === 'pendente').length;
+      const novosPendentes = novasEntradas.filter((e: Entrada) => e.status === 'pendente').length;
       
       if (novosPendentes > pendentesAtuais) {
         playNotification();
