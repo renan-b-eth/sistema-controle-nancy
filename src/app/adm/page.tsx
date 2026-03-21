@@ -120,11 +120,30 @@ export default function AdmDashboard() {
   }, [filtroData, carregarEntradas, carregarAlunos, carregarConfig, router]);
 
   const atualizarStatus = async (id: string, novoStatus: string) => {
-    await fetch('/api/adm/entradas/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: novoStatus })
-    });
+    try {
+      const res = await fetch('/api/adm/entradas/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: novoStatus })
+      });
+      if (res.ok) {
+        console.log(`Status ${id} atualizado para ${novoStatus}`);
+        carregarEntradas(filtroData);
+      } else {
+        alert("Erro ao atualizar status no servidor.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const repararBanco = async () => {
+    if (confirm("Isso irá verificar e injetar colunas faltantes no banco de dados. Deseja continuar?")) {
+      const res = await fetch('/api/adm/fix-db');
+      const data = await res.json();
+      alert(data.message || "Reparo concluído.");
+      carregarEntradas(filtroData);
+    }
   };
 
   const handleCadastrar = async (e: React.FormEvent) => {
@@ -328,6 +347,18 @@ export default function AdmDashboard() {
             {activeTab === 'config' && (
               <div className="p-10 animate-fade-in space-y-12 text-foreground">
                 <h2 className="text-2xl font-black uppercase italic border-l-4 border-amber-500 pl-4">Preferências do Sistema</h2>
+                
+                {/* Botão de Reparo de Banco (Novo) */}
+                <section className="bg-red-50 p-8 rounded-[2rem] border border-red-100">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-black text-lg uppercase italic tracking-tighter text-red-600">Manutenção de Dados</h3>
+                      <p className="text-xs text-red-400 font-bold max-w-md">Use esta função se o status dos alunos não estiver mudando. Ela injeta as colunas de autorização faltantes no banco.</p>
+                    </div>
+                    <button onClick={repararBanco} className="px-8 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-red-200 hover:bg-red-700 transition-all">Reparar Banco</button>
+                  </div>
+                </section>
+
                 <section className="bg-background p-8 rounded-[2rem] border border-border">
                   <div className="flex justify-between items-center text-foreground">
                     <div>

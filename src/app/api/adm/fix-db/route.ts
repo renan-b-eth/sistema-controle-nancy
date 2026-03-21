@@ -3,10 +3,9 @@ import prisma from '@/utils/prisma';
 
 export async function GET() {
   try {
-    console.log('Iniciando REPARO TOTAL do Banco...');
+    console.log('Iniciando ATUALIZAÇÃO E REPARO do Banco...');
 
-    // 1. Criar a tabela Entrada do zero com as colunas EXATAS
-    // Usamos SQL puro para garantir o sucesso total
+    // 1. Criar a tabela Entrada do zero caso não exista
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "entradas" (
         "id" TEXT PRIMARY KEY,
@@ -25,24 +24,32 @@ export async function GET() {
       );
     `);
 
-    // 2. Tentar adicionar colunas caso a tabela já existisse (Double check)
+    // 2. Adicionar as NOVAS colunas fundamentais para o fluxo de autorização e assinatura
     const columns = [
       { n: 'nome_aluno', t: 'TEXT' },
       { n: 'ra_aluno', t: 'TEXT' },
       { n: 'rg_aluno', t: 'TEXT' },
       { n: 'turma_aluno', t: 'TEXT' },
-      { n: 'updated_at', t: 'TIMESTAMP WITH TIME ZONE' }
+      { n: 'autorizado_por', t: 'TEXT' },
+      { n: 'assinatura_status', t: 'TEXT DEFAULT \'pendente\'' },
+      { n: 'updated_at', t: 'TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP' }
     ];
 
     for (const col of columns) {
       try {
         await prisma.$executeRawUnsafe(`ALTER TABLE "entradas" ADD COLUMN IF NOT EXISTS "${col.n}" ${col.t};`);
-      } catch (e) {}
+        console.log(`Coluna ${col.n} verificada/adicionada.`);
+      } catch (e) {
+        console.log(`Aviso na coluna ${col.n}:`, e);
+      }
     }
+
+    // 3. Garantir que REPLICA IDENTITY está FULL para Realtime funcionar
+    await prisma.$executeRawUnsafe(`ALTER TABLE "entradas" REPLICA IDENTITY FULL;`);
 
     return NextResponse.json({ 
       success: true, 
-      message: 'BANCO REPARADO DEFINITIVAMENTE. Pode testar o login GOD e alunos agora.'
+      message: 'BANCO ATUALIZADO COM SUCESSO. As colunas autorizado_por e assinatura_status foram injetadas.'
     });
 
   } catch (error: any) {
