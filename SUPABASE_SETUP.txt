@@ -1,0 +1,50 @@
+CREATE TABLE IF NOT EXISTS "alunos" (
+    "id" TEXT PRIMARY KEY,
+    "nome" TEXT NOT NULL,
+    "rg" TEXT UNIQUE NOT NULL,
+    "ra" TEXT UNIQUE NOT NULL,
+    "turma" TEXT NOT NULL,
+    "liberado_segunda_aula" BOOLEAN DEFAULT TRUE,
+    "created_at" TIMESTAMPTZ DEFAULT NOW(),
+    "updated_at" TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS "admins" (
+    "id" TEXT PRIMARY KEY,
+    "nome" TEXT NOT NULL,
+    "email" TEXT UNIQUE NOT NULL,
+    "senha" TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "entradas" (
+    "id" TEXT PRIMARY KEY,
+    "aluno_id" TEXT REFERENCES "alunos"("id") ON DELETE SET NULL,
+    "data" TEXT NOT NULL,
+    "horario" TEXT NOT NULL,
+    "aula_numero" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pendente',
+    "protocolo" TEXT UNIQUE NOT NULL,
+    "nome_aluno" TEXT NOT NULL,
+    "ra_aluno" TEXT NOT NULL,
+    "rg_aluno" TEXT NOT NULL,
+    "turma_aluno" TEXT NOT NULL,
+    "created_at" TIMESTAMPTZ DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='entradas' AND column_name='nome_aluno') THEN
+        ALTER TABLE "entradas" ADD COLUMN "nome_aluno" TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='entradas' AND column_name='ra_aluno') THEN
+        ALTER TABLE "entradas" ADD COLUMN "ra_aluno" TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='entradas' AND column_name='rg_aluno') THEN
+        ALTER TABLE "entradas" ADD COLUMN "rg_aluno" TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='entradas' AND column_name='turma_aluno') THEN
+        ALTER TABLE "entradas" ADD COLUMN "turma_aluno" TEXT;
+    END IF;
+END $$;
+
+ALTER TABLE "entradas" REPLICA IDENTITY FULL;
