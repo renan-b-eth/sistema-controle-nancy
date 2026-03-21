@@ -1,0 +1,20 @@
+-- COPIE E COLE ESTE COMANDO NO SQL EDITOR DO SUPABASE --
+
+-- 1. Garante que as colunas fundamentais existem
+ALTER TABLE "entradas" ADD COLUMN IF NOT EXISTS "autorizado_por" TEXT;
+ALTER TABLE "entradas" ADD COLUMN IF NOT EXISTS "assinatura_status" TEXT DEFAULT 'pendente';
+
+-- 2. Configura a Identidade de Réplica para FULL
+-- Isso é CRÍTICO para o Realtime avisar o frontend sobre mudanças de status
+ALTER TABLE "entradas" REPLICA IDENTITY FULL;
+
+-- 3. Habilita a Publicação de Realtime para a tabela entradas
+-- Se já existir, ele remove e cria de novo para garantir
+BEGIN;
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  CREATE PUBLICATION supabase_realtime FOR TABLE "entradas";
+COMMIT;
+
+-- 4. Notificação de Sucesso
+-- Se você ver esta mensagem, o banco está pronto para sincronizar com o site!
+SELECT 'BANCO DE DADOS ATUALIZADO COM SUCESSO PARA REALTIME' as status;
