@@ -6,7 +6,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("SUPABASE_DB_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Aluno {
@@ -27,10 +28,10 @@ model Entrada {
   id           String   @id @default(cuid())
   aluno_id     String?  @map("aluno_id")
   aluno        Aluno?   @relation(fields: [aluno_id], references: [id])
-  data         String   // No formato YYYY-MM-DD conforme o código
-  horario      String   // Formato HH:mm:ss
+  data         String
+  horario      String
   aula_numero  Int      @map("aula_numero")
-  status       String   // "liberado", "bloqueado", "direcao"
+  status       String   // "liberado", "bloqueado", "direcao", "pendente"
   protocolo    String   @unique
   nome_aluno   String   @map("nome_aluno")
   ra_aluno     String   @map("ra_aluno")
