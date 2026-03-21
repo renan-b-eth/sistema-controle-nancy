@@ -146,7 +146,7 @@ export default function AlunoDashboard() {
                 <span className="mr-4 animate-bounce">⏳</span> AGUARDANDO
               </h2>
               <p className="text-lg font-bold opacity-90 leading-relaxed max-w-2xl text-blue-50">
-                Olá {user.nome.split(' ')[0]}, sua solicitação para a <span className="bg-white/20 px-2 py-0.5 rounded font-black">{aulaAtual?.numero || body.aula_numero}ª aula</span> foi enviada com sucesso. 
+                Olá {user.nome.split(' ')[0]}, sua solicitação para a <span className="bg-white/20 px-2 py-0.5 rounded font-black">{aulaAtual?.numero || 1}ª aula</span> foi enviada com sucesso. 
                 <br /><br />
                 Aguarde a liberação que será realizada por <span className="underline font-black">Carlos ou Ivone</span>. 
                 Após a autorização, será gerado automaticamente um <span className="bg-white/20 px-2 py-0.5 rounded font-black text-sm">documento PDF para assinatura</span>, onde deverá constar a justificativa oficial pelo atraso na sua entrada na escola.
