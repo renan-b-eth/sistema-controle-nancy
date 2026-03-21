@@ -19,18 +19,17 @@ export default function AlunoDashboard() {
   const [termoAceito, setTermoAceito] = useState(false);
   const router = useRouter();
 
-  // 1. Garantir montagem no cliente para evitar erro de hidratação e loops
+  // 1. Inicialização e Proteção de Rota
   useEffect(() => {
-    setMounted(true);
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       router.replace('/login');
       return;
     }
     setUser(JSON.parse(storedUser));
+    setMounted(true);
   }, [router]);
 
-  // Função robusta de verificação manual (Fallback)
   const verificarStatusManual = useCallback(async (protocolo: string) => {
     if (!supabase || !protocolo) return;
     try {
@@ -53,8 +52,6 @@ export default function AlunoDashboard() {
 
     const prepararEntrada = async () => {
       let aula = getAulaAtual();
-      
-      // Checa Bypass se estiver fora do horário
       if (!aula) {
         try {
           const res = await fetch('/api/adm/config');
@@ -88,7 +85,7 @@ export default function AlunoDashboard() {
           } else {
             const errData = await response.json();
             setErrorEnvio(errData.error || "Erro ao registrar entrada.");
-            setProcessado(true); // Evita loop de tentativa se já deu erro de trava (ex: já entrou hoje)
+            setProcessado(true); 
           }
         } catch (e) {
           setErrorEnvio("Falha na conexão com o servidor.");
@@ -137,16 +134,13 @@ export default function AlunoDashboard() {
       });
       
       if (res.ok) {
-        // LIMPEZA DE SESSÃO TOTAL APÓS CONCLUIR
         await fetch('/api/auth/logout', { method: 'POST' });
         localStorage.removeItem('user');
         setStatusAtual('liberado');
         setAssinaturaStatus(status);
-        
-        // Pequeno delay para o aluno ler a confirmação antes de deslogar
         setTimeout(() => {
           router.replace('/login');
-        }, 5000);
+        }, 3000);
       }
     } catch (e) { console.error(e); }
   };
@@ -157,15 +151,7 @@ export default function AlunoDashboard() {
     router.replace('/login');
   };
 
-  // Enquanto não montou ou não tem user (e está redirecionando), mostra loading
-  if (!mounted || !user) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-background gap-4">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-primary"></div>
-        <p className="font-black text-[10px] uppercase tracking-widest text-secondary animate-pulse">Sincronizando Sistema...</p>
-      </div>
-    );
-  }
+  if (!mounted || !user) return null;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-10 font-sans relative overflow-hidden text-foreground">
