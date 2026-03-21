@@ -9,25 +9,22 @@ import { supabase } from '@/utils/supabase';
 export default function AlunoDashboard() {
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
-  const [aulaAtual, setAulaAtual] = useState<Aula | null>(null);
-  const [qrValue, setQrValue] = useState('');
   const [statusAtual, setStatusAtual] = useState<'pendente' | 'autorizado' | 'liberado' | 'bloqueado' | 'direcao'>('pendente');
   const [protocoloGerado, setProtocoloGerado] = useState('');
-  const [assinaturaStatus, setAssinaturaStatus] = useState<'pendente' | 'assinado' | 'recusado'>('pendente');
+  const [assinaturaStatus, setAssinaturaStatus] = useState('pendente');
   const [processado, setProcessado] = useState(false);
-  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [termoAceito, setTermoAceito] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   
   const router = useRouter();
   const statusRef = useRef(statusAtual);
 
-  // Mantém a ref atualizada para o realtime
+  // Sincroniza a ref com o estado para as funções de callback
   useEffect(() => {
     statusRef.current = statusAtual;
   }, [statusAtual]);
 
-  // 1. Inicialização e Proteção de Rota
+  // 1. Verificação Inicial de Sessão
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -38,8 +35,8 @@ export default function AlunoDashboard() {
     setMounted(true);
   }, [router]);
 
-  // Função de Verificação Forçada (Polling de 1 segundo)
-  const verificarStatusBanco = useCallback(async (protocolo: string) => {
+  // 2. LÓGICA DE ATUALIZAÇÃO EM TEMPO REAL (Garantia Total)
+  const checarStatusNoBanco = useCallback(async (protocolo: string) => {
     if (!supabase || !protocolo) return;
     try {
       const { data, error } = await supabase
@@ -49,143 +46,112 @@ export default function AlunoDashboard() {
         .maybeSingle();
       
       if (data && data.status !== statusRef.current) {
-        console.log("MUDANÇA DETECTADA VIA POLLING:", data.status);
-        if (data.status === 'autorizado') {
-          setShowPopup(true);
-        }
+        console.log("MUDANÇA DE STATUS DETECTADA:", data.status);
         setStatusAtual(data.status as any);
-        setAssinaturaStatus(data.assinatura_status as any);
+        setAssinaturaStatus(data.assinatura_status);
       }
-    } catch (e) { console.error("Erro polling:", e); }
+    } catch (e) { console.error("Erro ao sincronizar:", e); }
   }, []);
 
-  // Registro Inicial
+  // 3. Registro de Entrada e Início da Escuta
   useEffect(() => {
     if (!mounted || !user || processado) return;
 
-    const prepararEntrada = async () => {
+    const registrarEntrada = async () => {
       let aula = getAulaAtual();
       if (!aula) {
-        try {
-          const res = await fetch('/api/adm/config');
-          const config = await res.json();
-          if (config.bypass) aula = { numero: 1, inicio: 'TESTE', fim: 'TESTE' };
-        } catch (e) {}
+        // Checa Bypass do ADM
+        const res = await fetch('/api/adm/config');
+        const config = await res.json();
+        if (config.bypass) aula = { numero: 1, inicio: 'TESTE', fim: 'TESTE' };
       }
 
       if (aula) {
-        setAulaAtual(aula);
-        setQrValue(`${user.ra}-${Date.now()}`);
         const protocolo = `PE-${Date.now()}`;
         setProtocoloGerado(protocolo);
+        
+        const response = await fetch('/api/entradas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            protocolo, 
+            aula_numero: aula.numero, 
+            horario: new Date().toLocaleTimeString('pt-BR'), 
+            data: getDataEscolar() 
+          })
+        });
 
-        try {
-          const response = await fetch('/api/entradas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ protocolo, aula_numero: aula.numero, horario: new Date().toLocaleTimeString('pt-BR'), data: getDataEscolar() })
-          });
-          if (response.ok) setProcessado(true);
-          else {
-            const errData = await response.json();
-            setErrorEnvio(errData.error || "Erro ao registrar.");
-            setProcessado(true); 
-          }
-        } catch (e) { setErrorEnvio("Erro de servidor."); }
-      } else { setErrorEnvio("Sistema indisponível fora do horário."); }
+        if (response.ok) setProcessado(true);
+        else {
+          const errData = await response.json();
+          setErrorEnvio(errData.error || "Erro no registro.");
+          setProcessado(true);
+        }
+      }
     };
-    prepararEntrada();
+
+    registrarEntrada();
   }, [mounted, user, processado]);
 
-  // SINCRONIZAÇÃO EM TEMPO REAL (MÉTODO AGRESSIVO)
+  // 4. Efeito de Realtime e Polling Combinados
   useEffect(() => {
     if (!protocoloGerado || !supabase) return;
 
+    // Canal Realtime
     const channel = supabase
-      .channel(`aluno-final-${protocoloGerado}`)
+      .channel(`status-${protocoloGerado}`)
       .on('postgres_changes', { 
-        event: '*', 
+        event: 'UPDATE', 
         schema: 'public', 
-        table: 'entradas'
+        table: 'entradas',
+        filter: `protocolo=eq.${protocoloGerado}`
       }, (payload: any) => {
-        // Se a mudança for no meu protocolo
-        if (payload.new && payload.new.protocolo === protocoloGerado) {
-          console.log("REALTIME ATUALIZADO!", payload.new.status);
-          if (payload.new.status === 'autorizado' && statusRef.current === 'pendente') {
-            setShowPopup(true);
-          }
+        if (payload.new) {
           setStatusAtual(payload.new.status);
           setAssinaturaStatus(payload.new.assinatura_status);
         }
       })
       .subscribe();
 
-    const interval = setInterval(() => verificarStatusBanco(protocoloGerado), 1000);
+    // Polling de segurança a cada 2 segundos
+    const timer = setInterval(() => checarStatusNoBanco(protocoloGerado), 2000);
 
-    return () => { 
+    return () => {
       supabase.removeChannel(channel);
-      clearInterval(interval);
+      clearInterval(timer);
     };
-  }, [protocoloGerado, verificarStatusBanco]);
+  }, [protocoloGerado, checarStatusNoBanco]);
 
-  const finalizarSessaoEEntrar = async (status: 'assinado' | 'recusado') => {
-    try {
-      const res = await fetch('/api/entradas/signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ protocolo: protocoloGerado, status })
-      });
-      if (res.ok) {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        localStorage.removeItem('user');
-        setStatusAtual('liberado');
-        setTimeout(() => router.replace('/login'), 3000);
-      }
-    } catch (e) { console.error(e); }
+  // 5. Finalização de entrada
+  const confirmarEEntrar = async () => {
+    const res = await fetch('/api/entradas/signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolo: protocoloGerado, status: 'assinado' })
+    });
+    if (res.ok) {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      localStorage.removeItem('user');
+      setStatusAtual('liberado');
+      setTimeout(() => router.replace('/login'), 3000);
+    }
   };
 
   if (!mounted || !user) return null;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-10 font-sans relative overflow-hidden text-foreground">
-      {/* Background Decorativo */}
-      <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-5%] right-[-5%] w-[30%] h-[30%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-
-      {/* POPUP DE SUCESSO / AUTORIZAÇÃO */}
-      {showPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-card p-8 rounded-[3rem] shadow-2xl border-4 border-emerald-500 max-w-sm w-full text-center space-y-6 animate-in zoom-in duration-300">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto">✅</div>
-            <h3 className="text-2xl font-black uppercase italic tracking-tighter">Pedido Aceito!</h3>
-            <p className="font-bold text-secondary text-sm">Carlos/Ivone liberaram sua entrada. Clique no botão abaixo para assinar o termo.</p>
-            <button onClick={() => setShowPopup(false)} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-emerald-200">Prosseguir</button>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
         
-        <header className="flex justify-between items-center bg-card/70 backdrop-blur-xl p-6 rounded-[2rem] border border-border shadow-sm">
-          <div className="flex items-center space-x-4">
-            <div className="bg-gradient-to-tr from-primary to-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20"><span className="text-white font-black text-xl italic">N</span></div>
-            <h1 className="text-xl font-black tracking-tight italic">PortãoEdu</h1>
-          </div>
-          <button onClick={() => { localStorage.removeItem('user'); router.replace('/login'); }} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest border border-red-100">Sair</button>
-        </header>
-
-        {errorEnvio && (
-          <div className="p-6 bg-red-500 text-white rounded-[2rem] shadow-xl animate-bounce flex items-center space-x-4 border-4 border-white">
-            <span className="text-3xl">⚠️</span>
-            <div><h3 className="font-black uppercase text-xs tracking-widest">Atenção</h3><p className="font-bold text-xs opacity-90">{errorEnvio}</p></div>
-          </div>
-        )}
-
-        <section>
+        {/* Banner Central de Status (CORRIGIDO) */}
+        <section className="transition-all duration-500 ease-in-out">
           {statusAtual === 'pendente' ? (
-            <div className="p-8 sm:p-12 bg-primary text-white rounded-[3rem] shadow-2xl border-4 border-white relative overflow-hidden">
+            /* ESTADO: AGUARDANDO (AZUL) */
+            <div className="p-8 sm:p-12 bg-blue-600 text-white rounded-[3rem] shadow-2xl border-4 border-white relative overflow-hidden animate-pulse">
               <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">WAIT</div>
-              <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter"><span className="mr-4 animate-spin-slow text-white">⏳</span> AGUARDANDO</h2>
+              <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
+                <span className="mr-4 text-4xl">⏳</span> AGUARDANDO
+              </h2>
               <p className="text-lg font-bold opacity-90 leading-relaxed max-xl relative z-10">
                 Olá {user.nome.split(' ')[0]}, sua solicitação foi enviada. 
                 <br /><br />
@@ -193,49 +159,64 @@ export default function AlunoDashboard() {
               </p>
             </div>
           ) : (statusAtual === 'autorizado' || statusAtual === 'liberado') ? (
+            /* ESTADO: LIBERADO (VERDE ESMERALDA VIBRANTE) */
             <div className="p-8 sm:p-12 bg-emerald-500 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in zoom-in duration-500 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">OK</div>
-              <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter"><span className="mr-4 text-5xl">✅</span> {statusAtual === 'autorizado' ? 'AUTORIZADO!' : 'LIBERADO!'}</h2>
+              <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
+                <span className="mr-4 text-5xl animate-bounce">✅</span> LIBERADO!
+              </h2>
               
               {statusAtual === 'autorizado' ? (
                 <div className="bg-white/20 backdrop-blur-md p-6 sm:p-8 rounded-[2.5rem] border border-white/30 space-y-6">
-                  <p className="text-sm font-bold opacity-90 leading-relaxed">Autorizado pela gestão. Assine o documento manual na coordenação e confirme sua ciência abaixo para finalizar:</p>
+                  <p className="text-sm font-bold opacity-90 leading-relaxed">Olá, sua entrada foi autorizada. Você está <span className="font-black underline">LIBERADO</span>. Agora, assine o documento manual e confirme abaixo:</p>
                   <div className="bg-emerald-900/20 p-6 rounded-2xl border border-white/10 cursor-pointer" onClick={() => setTermoAceito(!termoAceito)}>
                     <label className="flex items-start space-x-4 cursor-pointer">
-                      <div className={`w-6 h-6 rounded-md border-2 border-white flex items-center justify-center ${termoAceito ? 'bg-white' : ''}`}>{termoAceito && <span className="text-emerald-600 font-black">✓</span>}</div>
-                      <span className="text-xs font-bold leading-tight flex-1 italic">Eu entendo o atraso, assinei manualmente e aceito as políticas da escola.</span>
+                      <div className={`w-6 h-6 rounded-md border-2 border-white flex items-center justify-center transition-all ${termoAceito ? 'bg-white' : ''}`}>
+                        {termoAceito && <span className="text-emerald-600 font-black text-xs">✓</span>}
+                      </div>
+                      <span className="text-xs font-bold leading-tight flex-1">Eu afirmo que já assinei o documento manualmente na coordenação e aceito as políticas da escola.</span>
                     </label>
                   </div>
-                  <button disabled={!termoAceito} onClick={() => finalizarSessaoEEntrar('assinado')} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600 hover:scale-[1.02]' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Confirmar Entrada e Finalizar</button>
+                  <button 
+                    disabled={!termoAceito} 
+                    onClick={confirmarEEntrar}
+                    className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600 hover:scale-[1.02]' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
+                  >
+                    Confirmar Entrada e Finalizar
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4 animate-fade-in text-center">
                   <p className="text-2xl font-black uppercase italic tracking-tighter">Acesso Confirmado!</p>
-                  <p className="text-sm font-bold opacity-90">Registro concluído. Prossiga para sua sala.</p>
+                  <p className="text-sm font-bold opacity-90">Registro concluído. Prossiga para sua sala. Bom estudo!</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="p-8 sm:p-12 bg-red-600 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in slide-in-from-top duration-500 relative overflow-hidden text-center">
+            /* ESTADO: DIREÇÃO (VERMELHO) */
+            <div className="p-8 sm:p-12 bg-red-600 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in slide-in-from-top duration-500 relative overflow-hidden">
               <h2 className="text-3xl font-black uppercase mb-4 tracking-tighter">🚨 DIRIJA-SE À DIREÇÃO</h2>
               <p className="text-sm font-bold opacity-90">Sua entrada deve ser tratada pessoalmente com a coordenação.</p>
             </div>
           )}
         </section>
 
+        {/* Info Grid (Identidade e Cartão) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-card p-10 rounded-[3rem] border border-border flex flex-col items-center justify-center text-center">
+          <div className="bg-card p-10 rounded-[3rem] border border-border flex flex-col items-center justify-center text-center shadow-sm">
             <h2 className="text-[10px] font-black text-secondary uppercase tracking-widest mb-8">Identidade Digital</h2>
-            <div className="p-6 bg-white rounded-[2.5rem] border-2 border-border shadow-inner"><QRCodeCanvas value={qrValue} size={180} fgColor="#0f172a" /></div>
-            <p className="text-[10px] text-secondary mt-8 font-black uppercase flex items-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Live Sincronizado</p>
+            <div className="p-6 bg-white rounded-[2.5rem] border-2 border-border"><QRCodeCanvas value={protocoloGerado || 'loading'} size={180} fgColor="#0f172a" /></div>
+            <p className="text-[10px] text-secondary mt-8 font-black uppercase flex items-center">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Sincronizado
+            </p>
           </div>
-          <div className="bg-card p-10 rounded-[3rem] border border-border relative flex flex-col justify-center">
-            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight border-l-4 border-primary pl-4 uppercase italic text-foreground">Acesso Escolar</h2>
+          <div className="bg-card p-10 rounded-[3rem] border border-border relative flex flex-col justify-center shadow-sm">
+            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight border-l-4 border-primary pl-4 uppercase italic">Acesso Escolar</h2>
             <div className="space-y-6">
-              <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 text-foreground">Aluno</p><p className="text-foreground text-lg font-black uppercase truncate">{user.nome}</p></div>
+              <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">Aluno</p><p className="text-foreground text-lg font-black uppercase truncate">{user.nome}</p></div>
               <div className="grid grid-cols-2 gap-6">
-                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 text-foreground">RA</p><p className="text-foreground text-lg font-black italic">{user.ra?.replace(/[-\s]/g, '')}</p></div>
-                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 text-foreground">Turma</p><p className="text-primary text-lg font-black italic">{user.turma}</p></div>
+                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">RA</p><p className="text-foreground text-lg font-black italic">{user.ra}</p></div>
+                <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">Turma</p><p className="text-primary text-lg font-black italic">{user.turma}</p></div>
               </div>
             </div>
           </div>
