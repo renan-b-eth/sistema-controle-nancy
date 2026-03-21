@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
 import { getAulaAtual, Aula, getDataEscolar } from '@/utils/horarios';
@@ -17,25 +17,29 @@ export default function AlunoDashboard() {
   const [processado, setProcessado] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [termoAceito, setTermoAceito] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  
   const router = useRouter();
+  const statusRef = useRef(statusAtual);
 
-  // 1. Inicialização e Proteção de Rota Rigorosa
+  // Mantém a ref atualizada para o realtime
+  useEffect(() => {
+    statusRef.current = statusAtual;
+  }, [statusAtual]);
+
+  // 1. Inicialização e Proteção de Rota
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       router.replace('/login');
       return;
     }
-    const parsed = JSON.parse(storedUser);
-    if (parsed.profile !== 'Aluno') {
-      router.replace('/login');
-      return;
-    }
-    setUser(parsed);
+    setUser(JSON.parse(storedUser));
     setMounted(true);
   }, [router]);
 
-  const verificarStatusManual = useCallback(async (protocolo: string) => {
+  // Função de Verificação Forçada (Polling de 1 segundo)
+  const verificarStatusBanco = useCallback(async (protocolo: string) => {
     if (!supabase || !protocolo) return;
     try {
       const { data, error } = await supabase
@@ -44,14 +48,18 @@ export default function AlunoDashboard() {
         .eq('protocolo', protocolo)
         .maybeSingle();
       
-      if (data) {
-        if (data.status !== statusAtual) setStatusAtual(data.status as any);
-        if (data.assinatura_status !== assinaturaStatus) setAssinaturaStatus(data.assinatura_status as any);
+      if (data && data.status !== statusRef.current) {
+        console.log("MUDANÇA DETECTADA VIA POLLING:", data.status);
+        if (data.status === 'autorizado') {
+          setShowPopup(true);
+        }
+        setStatusAtual(data.status as any);
+        setAssinaturaStatus(data.assinatura_status as any);
       }
     } catch (e) { console.error("Erro polling:", e); }
-  }, [statusAtual, assinaturaStatus]);
+  }, []);
 
-  // Registro de Entrada Automático
+  // Registro Inicial
   useEffect(() => {
     if (!mounted || !user || processado) return;
 
@@ -81,7 +89,7 @@ export default function AlunoDashboard() {
           else {
             const errData = await response.json();
             setErrorEnvio(errData.error || "Erro ao registrar.");
-            setProcessado(true);
+            setProcessado(true); 
           }
         } catch (e) { setErrorEnvio("Erro de servidor."); }
       } else { setErrorEnvio("Sistema indisponível fora do horário."); }
@@ -89,28 +97,37 @@ export default function AlunoDashboard() {
     prepararEntrada();
   }, [mounted, user, processado]);
 
-  // Realtime
+  // SINCRONIZAÇÃO EM TEMPO REAL (MÉTODO AGRESSIVO)
   useEffect(() => {
     if (!protocoloGerado || !supabase) return;
+
     const channel = supabase
-      .channel(`canal-${protocoloGerado}`)
+      .channel(`aluno-final-${protocoloGerado}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'entradas',
-        filter: `protocolo=eq.${protocoloGerado}`
+        table: 'entradas'
       }, (payload: any) => {
-        if (payload.new) {
+        // Se a mudança for no meu protocolo
+        if (payload.new && payload.new.protocolo === protocoloGerado) {
+          console.log("REALTIME ATUALIZADO!", payload.new.status);
+          if (payload.new.status === 'autorizado' && statusRef.current === 'pendente') {
+            setShowPopup(true);
+          }
           setStatusAtual(payload.new.status);
           setAssinaturaStatus(payload.new.assinatura_status);
         }
       })
       .subscribe();
-    const interval = setInterval(() => verificarStatusManual(protocoloGerado), 2000);
-    return () => { supabase.removeChannel(channel); clearInterval(interval); };
-  }, [protocoloGerado, verificarStatusManual]);
 
-  // FINALIZAÇÃO E EXPULSÃO
+    const interval = setInterval(() => verificarStatusBanco(protocoloGerado), 1000);
+
+    return () => { 
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [protocoloGerado, verificarStatusBanco]);
+
   const finalizarSessaoEEntrar = async (status: 'assinado' | 'recusado') => {
     try {
       const res = await fetch('/api/entradas/signature', {
@@ -118,19 +135,11 @@ export default function AlunoDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ protocolo: protocoloGerado, status })
       });
-      
       if (res.ok) {
-        // Mata a sessão no servidor e no navegador imediatamente
         await fetch('/api/auth/logout', { method: 'POST' });
         localStorage.removeItem('user');
-        
         setStatusAtual('liberado');
-        setAssinaturaStatus(status);
-        
-        // Redireciona em 3 segundos para o login
-        setTimeout(() => {
-          router.push('/login');
-        }, 3000);
+        setTimeout(() => router.replace('/login'), 3000);
       }
     } catch (e) { console.error(e); }
   };
@@ -139,15 +148,38 @@ export default function AlunoDashboard() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-10 font-sans relative overflow-hidden text-foreground">
+      {/* Background Decorativo */}
+      <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div className="absolute bottom-[-5%] right-[-5%] w-[30%] h-[30%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+      {/* POPUP DE SUCESSO / AUTORIZAÇÃO */}
+      {showPopup && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-card p-8 rounded-[3rem] shadow-2xl border-4 border-emerald-500 max-w-sm w-full text-center space-y-6 animate-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto">✅</div>
+            <h3 className="text-2xl font-black uppercase italic tracking-tighter">Pedido Aceito!</h3>
+            <p className="font-bold text-secondary text-sm">Carlos/Ivone liberaram sua entrada. Clique no botão abaixo para assinar o termo.</p>
+            <button onClick={() => setShowPopup(false)} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-emerald-200">Prosseguir</button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
         
         <header className="flex justify-between items-center bg-card/70 backdrop-blur-xl p-6 rounded-[2rem] border border-border shadow-sm">
           <div className="flex items-center space-x-4">
-            <div className="bg-gradient-to-tr from-primary to-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"><span className="text-white font-black text-xl italic">N</span></div>
-            <h1 className="text-xl font-black italic">PortãoEdu</h1>
+            <div className="bg-gradient-to-tr from-primary to-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20"><span className="text-white font-black text-xl italic">N</span></div>
+            <h1 className="text-xl font-black tracking-tight italic">PortãoEdu</h1>
           </div>
-          <button onClick={() => { localStorage.removeItem('user'); router.replace('/login'); }} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-black text-[10px] border border-red-100 uppercase">Sair</button>
+          <button onClick={() => { localStorage.removeItem('user'); router.replace('/login'); }} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest border border-red-100">Sair</button>
         </header>
+
+        {errorEnvio && (
+          <div className="p-6 bg-red-500 text-white rounded-[2rem] shadow-xl animate-bounce flex items-center space-x-4 border-4 border-white">
+            <span className="text-3xl">⚠️</span>
+            <div><h3 className="font-black uppercase text-xs tracking-widest">Atenção</h3><p className="font-bold text-xs opacity-90">{errorEnvio}</p></div>
+          </div>
+        )}
 
         <section>
           {statusAtual === 'pendente' ? (
@@ -157,7 +189,7 @@ export default function AlunoDashboard() {
               <p className="text-lg font-bold opacity-90 leading-relaxed max-xl relative z-10">
                 Olá {user.nome.split(' ')[0]}, sua solicitação foi enviada. 
                 <br /><br />
-                Sua entrada só será liberada quando <span className="underline decoration-2 underline-offset-4">Ivone ou Carlos</span> autorizarem no sistema.
+                Sua entrada só será liberada quando <span className="underline decoration-2 underline-offset-4 font-black">Ivone ou Carlos</span> autorizarem no sistema.
               </p>
             </div>
           ) : (statusAtual === 'autorizado' || statusAtual === 'liberado') ? (
@@ -167,19 +199,19 @@ export default function AlunoDashboard() {
               
               {statusAtual === 'autorizado' ? (
                 <div className="bg-white/20 backdrop-blur-md p-6 sm:p-8 rounded-[2.5rem] border border-white/30 space-y-6">
-                  <p className="text-sm font-bold opacity-90 leading-relaxed">Autorizado pela gestão. Assine o documento manual na coordenação e confirme abaixo para finalizar:</p>
+                  <p className="text-sm font-bold opacity-90 leading-relaxed">Autorizado pela gestão. Assine o documento manual na coordenação e confirme sua ciência abaixo para finalizar:</p>
                   <div className="bg-emerald-900/20 p-6 rounded-2xl border border-white/10 cursor-pointer" onClick={() => setTermoAceito(!termoAceito)}>
                     <label className="flex items-start space-x-4 cursor-pointer">
                       <div className={`w-6 h-6 rounded-md border-2 border-white flex items-center justify-center ${termoAceito ? 'bg-white' : ''}`}>{termoAceito && <span className="text-emerald-600 font-black">✓</span>}</div>
                       <span className="text-xs font-bold leading-tight flex-1 italic">Eu entendo o atraso, assinei manualmente e aceito as políticas da escola.</span>
                     </label>
                   </div>
-                  <button disabled={!termoAceito} onClick={() => finalizarSessaoEEntrar('assinado')} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Confirmar e Entrar</button>
+                  <button disabled={!termoAceito} onClick={() => finalizarSessaoEEntrar('assinado')} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600 hover:scale-[1.02]' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Confirmar Entrada e Finalizar</button>
                 </div>
               ) : (
                 <div className="space-y-4 animate-fade-in text-center">
                   <p className="text-2xl font-black uppercase italic tracking-tighter">Acesso Confirmado!</p>
-                  <p className="text-sm font-bold opacity-90">Registro concluído. Voltando para a tela de login...</p>
+                  <p className="text-sm font-bold opacity-90">Registro concluído. Prossiga para sua sala.</p>
                 </div>
               )}
             </div>
@@ -195,10 +227,10 @@ export default function AlunoDashboard() {
           <div className="bg-card p-10 rounded-[3rem] border border-border flex flex-col items-center justify-center text-center">
             <h2 className="text-[10px] font-black text-secondary uppercase tracking-widest mb-8">Identidade Digital</h2>
             <div className="p-6 bg-white rounded-[2.5rem] border-2 border-border shadow-inner"><QRCodeCanvas value={qrValue} size={180} fgColor="#0f172a" /></div>
-            <p className="text-[10px] text-secondary mt-8 font-black uppercase flex items-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Live</p>
+            <p className="text-[10px] text-secondary mt-8 font-black uppercase flex items-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Live Sincronizado</p>
           </div>
           <div className="bg-card p-10 rounded-[3rem] border border-border relative flex flex-col justify-center">
-            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight border-l-4 border-primary pl-4 uppercase italic">Acesso Escolar</h2>
+            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight border-l-4 border-primary pl-4 uppercase italic text-foreground">Acesso Escolar</h2>
             <div className="space-y-6">
               <div><p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 text-foreground">Aluno</p><p className="text-foreground text-lg font-black uppercase truncate">{user.nome}</p></div>
               <div className="grid grid-cols-2 gap-6">
