@@ -1,27 +1,28 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
+import { createClient } from '@supabase/supabase-js';
 import { getAulaAtual, Aula, getDataEscolar } from '@/utils/horarios';
-import { supabase } from '@/utils/supabase';
+
+// 1. Conexão Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function AlunoDashboard() {
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
-  const [statusAtual, setStatusAtual] = useState<'pendente' | 'autorizado' | 'liberado' | 'direcao'>('pendente');
+  const [status, setStatus] = useState('pendente'); // 'pendente', 'autorizado', 'liberado', 'direcao'
   const [protocoloGerado, setProtocoloGerado] = useState('');
-  const [termoAceito, setTermoAceito] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
-  
+  const [checkboxChecked, setCheckboxChecked] = useState(false);
+  const [processado, setProcessado] = useState(false);
   const router = useRouter();
-  const statusRef = useRef('pendente');
 
-  useEffect(() => { statusRef.current = statusAtual; }, [statusAtual]);
-
-  // 1. Inicialização
+  // Inicialização do Usuário (Sessão Local)
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -32,56 +33,84 @@ export default function AlunoDashboard() {
     setMounted(true);
   }, [router]);
 
-  // 2. Cronómetro Regressivo (Logout automático)
+  /**
+   * 2. ESTADO INICIAL E TEMPO REAL (A MÁGICA)
+   */
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (timerRunning && timeLeft > 0) {
-      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0) {
-      handleLogout();
-    }
-    return () => clearTimeout(timer);
-  }, [timerRunning, timeLeft]);
+    if (!mounted || !user) return;
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    localStorage.removeItem('user');
-    router.replace('/login');
-  };
+    const alunoId = user.id;
 
-  // 3. Subscrição Realtime (WebSocket do Supabase)
-  useEffect(() => {
-    if (!protocoloGerado || !supabase) return;
+    // A. Busca Inicial (Estado Atual ao Carregar)
+    const fetchInitialStatus = async () => {
+      const { data, error } = await supabase
+        .from('entradas')
+        .select('status, protocolo')
+        .eq('ra_aluno', user.ra) // Usando RA para maior precisão no filtro escolar
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    console.log("Iniciando canal Realtime para:", protocoloGerado);
+      if (data && !error) {
+        setStatus(data.status);
+        setProtocoloGerado(data.protocolo);
+      }
+    };
 
+    fetchInitialStatus();
+
+    // B. Subscrição Realtime via WebSockets (Evento UPDATE)
     const channel = supabase
-      .channel(`aluno-realtime-${protocoloGerado}`)
+      .channel('aluno-realtime-update')
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'entradas',
-          filter: `protocolo=eq.${protocoloGerado}`,
+          filter: `ra_aluno=eq.${user.ra}`,
         },
         (payload: any) => {
-          console.log('Mudança instantânea recebida:', payload.new.status);
-          if (payload.new.status !== statusRef.current) {
-            setStatusAtual(payload.new.status);
-          }
+          console.log('Mudança de status recebida:', payload.new.status);
+          const novoStatus = payload.new.status;
+          setStatus(novoStatus);
         }
       )
       .subscribe();
 
+    // Limpeza (Unmount)
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [protocoloGerado]);
+  }, [mounted, user]);
 
-  // 4. Registro Inicial do Pedido
+  /**
+   * 3. LÓGICA DO CRONÔMETRO
+   */
   useEffect(() => {
-    if (!mounted || !user) return;
+    let interval: NodeJS.Timeout;
+    if (timerRunning && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      // Logout Final
+      handleLogout();
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning, timeLeft]);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
+
+  /**
+   * 4. REGISTRO AUTOMÁTICO DE ENTRADA
+   */
+  useEffect(() => {
+    if (!mounted || !user || processado) return;
 
     const registrar = async () => {
       let aula = getAulaAtual();
@@ -108,43 +137,39 @@ export default function AlunoDashboard() {
           const data = await response.json();
           if (response.ok) {
             setProtocoloGerado(data.protocolo);
-            setStatusAtual(data.status);
+            setStatus(data.status);
+            setProcessado(true);
           }
-        } catch (e) {
-          setErrorEnvio("Falha de conexão com o sistema.");
-        }
-      } else {
-        setErrorEnvio("Sistema fora do horário escolar.");
+        } catch (e) { console.error("Erro no registro:", e); }
       }
     };
     registrar();
-  }, [mounted, user]);
+  }, [mounted, user, processado]);
 
   const handleCheckboxChange = (val: boolean) => {
-    setTermoAceito(val);
-    // Ativa o cronómetro de 60 segundos ao marcar a checkbox
+    setCheckboxChecked(val);
     if (val) setTimerRunning(true);
   };
 
-  const confirmarEEntrar = async () => {
+  const confirmarFinal = async () => {
     const res = await fetch('/api/entradas/signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ protocolo: protocoloGerado, status: 'assinado' })
     });
-    if (res.ok) setStatusAtual('liberado');
+    if (res.ok) setStatus('liberado');
   };
 
   if (!mounted || !user) return null;
 
-  const isLiberado = statusAtual === 'autorizado' || statusAtual === 'liberado';
+  const isLiberado = status === 'autorizado' || status === 'liberado';
 
   return (
-    <div className={`min-h-screen transition-colors duration-700 font-sans p-4 md:p-10 flex flex-col items-center justify-center ${
+    <div className={`min-h-screen flex flex-col items-center justify-center p-6 transition-all duration-700 font-sans ${
       isLiberado ? 'bg-emerald-500' : 'bg-blue-600'
     }`}>
       
-      {/* Cronómetro Flutuante */}
+      {/* CRONÔMETRO DE LOGOUT */}
       {timerRunning && (
         <div className="fixed top-10 animate-bounce">
           <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl border border-white/20 flex items-center gap-3">
@@ -156,67 +181,76 @@ export default function AlunoDashboard() {
 
       <div className="bg-white p-8 sm:p-12 rounded-[3rem] shadow-2xl max-w-md w-full text-center space-y-8 animate-fade-in">
         
-        <header className="flex flex-col items-center gap-2">
-          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-white font-black text-3xl shadow-xl transition-colors duration-700 ${isLiberado ? 'bg-emerald-500' : 'bg-blue-600'}`}>N</div>
-          <h1 className="text-xl font-black italic tracking-tight text-slate-900">PortãoEdu</h1>
-        </header>
+        <div className="flex flex-col items-center gap-2">
+          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl mb-2 transition-colors duration-700 ${
+            isLiberado ? 'bg-emerald-500' : 'bg-blue-600'
+          }`}>N</div>
+          <h1 className="text-xl font-black text-slate-900 tracking-tighter italic">PortãoEdu</h1>
+        </div>
 
-        {statusAtual === 'pendente' ? (
+        {status === 'pendente' ? (
           /* ESTADO: AGUARDANDO (AZUL) */
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="text-6xl animate-bounce">⏳</div>
-            <h2 className="text-3xl font-black text-blue-600 uppercase italic leading-none">Aguardando</h2>
+            <h2 className="text-3xl font-black text-blue-600 uppercase italic">Aguardando</h2>
             <p className="text-slate-600 font-medium leading-relaxed">
-              Olá <span className="font-bold text-slate-900">{user.nome.split(' ')[0]}</span>, a tua solicitação foi enviada. <br/>
-              A entrada será liberada em breve por <span className="font-bold">Ivone ou Carlos</span>.
+              Olá <span className="font-bold text-slate-900">{user.nome.split(' ')[0]}</span>, o teu pedido foi enviado. 
+              <br/> Aguarda que a <span className="font-bold text-slate-900">Ivone ou o Carlos</span> autorizem a tua entrada.
             </p>
+            <div className="pt-4 flex items-center justify-center gap-2 text-slate-400">
+              <span className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></span>
+              <span className="text-[10px] font-bold uppercase tracking-widest">Sincronia WebSocket Ativa</span>
+            </div>
           </div>
         ) : isLiberado ? (
           /* ESTADO: LIBERADO (VERDE) */
           <div className="space-y-6 animate-in zoom-in duration-500">
             <div className="text-6xl">✅</div>
-            <h2 className="text-3xl font-black text-emerald-600 uppercase italic leading-none">Liberado!</h2>
+            <h2 className="text-3xl font-black text-emerald-600 uppercase italic">Liberado!</h2>
             
-            {statusAtual === 'autorizado' ? (
+            {status === 'autorizado' ? (
               <div className="space-y-6">
                 <p className="text-slate-600 font-medium">
-                  Olá <span className="font-black uppercase text-slate-900">{user.nome.split(' ')[0]}</span>, a tua entrada foi autorizada. Estás <span className="font-bold underline">LIBERADO</span>.
+                  Olá <span className="font-bold text-slate-900 uppercase">{user.nome.split(' ')[0]}</span>, a tua entrada foi autorizada. Estás <span className="underline font-bold">LIBERADO</span>.
                 </p>
-                
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-start space-x-4 text-left cursor-pointer" onClick={() => handleCheckboxChange(!termoAceito)}>
-                  <div className={`w-6 h-6 min-w-[24px] rounded-md border-2 flex items-center justify-center transition-all ${termoAceito ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 bg-white'}`}>
-                    {termoAceito && <span className="text-white text-xs font-black">✓</span>}
+
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4 text-left cursor-pointer" onClick={() => handleCheckboxChange(!checkboxChecked)}>
+                  <div className="flex items-start gap-4">
+                    <div className={`w-6 h-6 min-w-[24px] rounded-md border-2 flex items-center justify-center transition-all ${checkboxChecked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 bg-white'}`}>
+                      {checkboxChecked && <span className="text-white text-xs font-black">✓</span>}
+                    </div>
+                    <span className="text-xs text-slate-500 font-semibold italic leading-tight">
+                      Eu afirmo que já assinei o documento manual na coordenação e aceito as políticas da escola.
+                    </span>
                   </div>
-                  <span className="text-xs font-bold leading-tight text-slate-500">Eu afirmo que já assinei o documento manual na coordenação e aceito as políticas da escola.</span>
                 </div>
 
                 <button 
-                  disabled={!termoAceito} 
-                  onClick={confirmarEEntrar}
-                  className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all shadow-xl ${termoAceito ? 'bg-emerald-500 text-white hover:scale-[1.02]' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                  disabled={!checkboxChecked} 
+                  onClick={confirmarFinal}
+                  className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all shadow-xl ${checkboxChecked ? 'bg-emerald-500 text-white hover:scale-[1.02]' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
                 >
-                  Confirmar e Entrar
+                  Confirmar Entrada
                 </button>
               </div>
             ) : (
               <div className="py-10 space-y-4">
-                <p className="text-slate-900 font-black text-2xl italic">Bom estudo!</p>
-                <p className="text-slate-500 text-xs">O registro foi concluído. Saindo em {timeLeft}s...</p>
+                <p className="text-slate-900 font-black text-2xl italic italic">Bom estudo!</p>
+                <p className="text-slate-500 text-xs italic">O registro foi concluído. Saindo em {timeLeft}s...</p>
               </div>
             )}
           </div>
         ) : (
           <div className="space-y-4 text-red-600">
-            <h2 className="text-2xl font-black uppercase">🚨 DIREÇÃO</h2>
+            <h2 className="text-2xl font-black uppercase tracking-tighter">🚨 DIREÇÃO</h2>
             <p className="text-sm font-medium">Vai à coordenação para falar com Ivone ou Carlos.</p>
           </div>
         )}
 
         <div className="pt-8 border-t border-slate-100">
           <QRCodeCanvas value={protocoloGerado || 'loading'} size={140} fgColor="#0f172a" className="mx-auto opacity-50" />
-          <p className="text-[10px] text-slate-400 mt-4 font-black uppercase tracking-widest">Sincronia WebSocket Ativa</p>
+          <p className="text-[10px] text-slate-400 mt-4 font-black uppercase tracking-widest">Digital-ID: {user.ra}</p>
         </div>
-
       </div>
 
       <footer className="mt-10 text-white/50 text-[9px] font-black uppercase tracking-[0.3em]">
