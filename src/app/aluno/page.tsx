@@ -73,7 +73,7 @@ export default function AlunoDashboard() {
           setStatus(payload.new.status); 
         }
       )
-      .subscribe((statusConn) => {
+      .subscribe((statusConn: any) => {
         console.log('Status da conexão Realtime:', statusConn);
       });
 
