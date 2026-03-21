@@ -1,49 +1,26 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #1e40af;
-  --color-secondary: #0f172a;
-  --color-accent: #3b82f6;
-  
-  --radius-xl: 1.5rem;
-  --radius-2xl: 2rem;
-  --radius-3xl: 2.5rem;
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
 }
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+@layer components {
+  .shadow-premium {
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
+  }
 }
 
+/* Forçar reset de margens que podem causar desalinhamento */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Utilitários customizados para garantir que o CSS funcione mesmo se o Tailwind falhar em alguma classe exótica */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.shadow-premium {
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
-}
-
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.animate-pulse-soft {
-  animation: pulse-soft 2s infinite;
 }
