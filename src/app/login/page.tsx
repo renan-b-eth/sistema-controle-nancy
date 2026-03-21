@@ -2,47 +2,44 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import studentsData from '@/data/students.json';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // Admin Login (Carlos & Ivone)
-    if ((username === 'carlos@adm.com' && password === 'carlos123') || 
-        (username === 'ivone@adm.com' && password === 'ivone123')) {
-      const user = { 
-        email: username, 
-        profile: 'ADM', 
-        name: username === 'carlos@adm.com' ? 'Carlos' : 'Ivone' 
-      };
-      localStorage.setItem('user', JSON.stringify(user));
-      router.push('/adm');
-      return;
-    }
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
 
-    // Student Login (Using the local students.json)
-    const student = studentsData.find(s => s.rg === username && username === password);
-    
-    if (student) {
-      const user = { 
-        rg: student.rg, 
-        profile: 'Aluno', 
-        name: student.nome, 
-        ra: student.ra,
-        turma: student.turma,
-        liberadoSegundaAula: student.liberadoSegundaAula
-      };
-      localStorage.setItem('user', JSON.stringify(user));
-      router.push('/aluno');
-    } else {
-      setError('Credenciais inválidas. Use seu RG como usuário e senha.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao realizar login');
+      }
+
+      // Login bem-sucedido
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      if (data.user.profile === 'ADM') {
+        router.push('/adm');
+      } else {
+        router.push('/aluno');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,26 +56,28 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-1">
-            <label className="text-xs font-black text-blue-900 uppercase tracking-widest ml-1">RG de Acesso</label>
+            <label className="text-xs font-black text-blue-900 uppercase tracking-widest ml-1">RA ou Email ADM</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Digite seu RG completo"
+              placeholder="Digite seu RA (Apenas números)"
               className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-gray-700"
               required
+              disabled={loading}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-black text-blue-900 uppercase tracking-widest ml-1">Senha (RG)</label>
+            <label className="text-xs font-black text-blue-900 uppercase tracking-widest ml-1">Senha (Mesmo RA)</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Repita seu RG"
+              placeholder="Repita seu RA"
               className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-gray-700"
               required
+              disabled={loading}
             />
           </div>
 
@@ -90,9 +89,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg shadow-blue-100 transition-all active:scale-95"
+            disabled={loading}
+            className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg shadow-blue-100 transition-all active:scale-95 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            ENTRAR NO SISTEMA
+            {loading ? 'PROCESSANDO...' : 'ENTRAR NO SISTEMA'}
           </button>
         </form>
 

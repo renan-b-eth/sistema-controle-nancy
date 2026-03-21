@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import studentsData from '@/data/students.json';
-import { gerarPDFAssinatura } from '@/utils/pdfGenerator';
+import { gerarPDFAssinatura, gerarRelatorioGeral } from '@/utils/pdfGenerator';
 import { supabase } from '@/utils/supabase';
 
 interface Entrada {
@@ -26,12 +26,6 @@ export default function AdmDashboard() {
   const [filtroData, setFiltroData] = useState(new Date().toISOString().split('T')[0]);
   const router = useRouter();
 
-  // Som de notificação
-  const playNotificationSound = () => {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-    audio.play().catch(e => console.error("Erro ao tocar som:", e));
-  };
-
   const carregarEntradas = async (dataParaFiltrar: string) => {
     try {
       const { data, error } = await supabase
@@ -48,150 +42,84 @@ export default function AdmDashboard() {
   };
 
   useEffect(() => {
+    // Pegamos os dados do user do cookie via middleware, mas para a UI pegamos do localStorage (ou uma API /me)
     const storedUser = localStorage.getItem('user');
-    if (!storedUser) {
-      router.push('/login');
-      return;
-    }
-
-    const parsedUser = JSON.parse(storedUser);
-    if (parsedUser.profile !== 'ADM') {
-      router.push('/login');
-      return;
-    }
-
-    setUser(parsedUser);
+    if (storedUser) setUser(JSON.parse(storedUser));
+    
     carregarEntradas(filtroData);
 
-    // Ouvir novos registros em tempo real
     const channel = supabase
       .channel('novas-entradas')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'entradas'
-        },
-        (payload: any) => {
-          // Só adiciona em tempo real se a data for hoje
-          const hoje = new Date().toISOString().split('T')[0];
-          if (payload.new.status === 'pendente' && payload.new.data === hoje) {
-            playNotificationSound();
-            setEntradas(prev => [payload.new as Entrada, ...prev]);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'entradas'
-        },
-        (payload: any) => {
-          setEntradas(prev => prev.map(e => e.id === payload.new.id ? payload.new as Entrada : e));
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entradas' }, () => {
+         carregarEntradas(filtroData);
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [router, filtroData]);
+    return () => { supabase.removeChannel(channel); };
+  }, [filtroData]);
 
-  const atualizarStatus = async (id: string, novoStatus: 'liberado' | 'bloqueado' | 'direcao') => {
-    try {
-      const { error } = await supabase
-        .from('entradas')
-        .update({ status: novoStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-    } catch (e) {
-      alert("Erro ao atualizar status.");
-    }
+  const atualizarStatus = async (id: string, novoStatus: string) => {
+    await supabase.from('entradas').update({ status: novoStatus }).eq('id', id);
+    carregarEntradas(filtroData);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('user');
     router.push('/login');
   };
 
-  const imprimirPDF = (e: Entrada) => {
-    gerarPDFAssinatura({
-      nome: e.nome_aluno,
-      ra: e.ra_aluno,
-      rg: e.rg_aluno,
-      turma: e.turma_aluno,
-      data: e.data,
-      horario: e.horario,
-      aulaNumero: e.aula_numero
-    });
+  const handleGerarRelatorio = () => {
+    gerarRelatorioGeral(entradas, filtroData);
   };
 
-  const entradasFiltradas = entradas.filter(e => {
-    // Se a data do filtro for hoje, mostramos todos os do estado (que inclui o tempo real)
-    // Se for outra data, o carregarEntradas já filtrou
-    return true; // Simplificado pois o carregarEntradas já lida com a data inicial e o tempo real é para o dia atual
-  });
-
-  if (!user) return <p className="p-8 text-center">Carregando...</p>;
+  if (!user) return <p className="p-8 text-center font-bold">Autenticando...</p>;
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-200 gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black text-blue-800">PortãoEdu <span className="text-gray-400 font-light">| ADM</span></h1>
-            <p className="text-sm text-gray-500 font-medium mt-1">Bem-vindo(a), {user.name} (Gestão Nancy)</p>
+            <h1 className="text-2xl md:text-3xl font-black text-blue-800">PortãoEdu <span className="text-gray-400 font-light">| GESTÃO</span></h1>
+            <p className="text-sm text-gray-500 font-medium mt-1 uppercase tracking-wider">Escola Nancy de Oliveira Fidalgo</p>
           </div>
-          <button 
-            onClick={handleLogout} 
-            className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition shadow-lg shadow-red-100"
-          >
-            Sair
-          </button>
+          <div className="flex items-center space-x-3 w-full md:w-auto">
+             <button 
+               onClick={handleGerarRelatorio}
+               className="flex-1 md:flex-none px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition shadow-lg shadow-emerald-100 text-sm"
+             >
+               📊 Gerar Relatório PDF
+             </button>
+             <button 
+               onClick={handleLogout} 
+               className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition shadow-lg shadow-red-100 text-sm"
+             >
+               Sair
+             </button>
+          </div>
         </header>
 
         {/* Tabs */}
         <div className="flex space-x-2 mb-6 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-200">
-          <button
-            onClick={() => setActiveTab('entradas')}
-            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'entradas' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            📋 Registro de Entradas
+          <button onClick={() => setActiveTab('entradas')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'entradas' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
+            📋 Registros do Dia
           </button>
-          <button
-            onClick={() => setActiveTab('alunos')}
-            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'alunos' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            🎓 Lista de Alunos (Nancy)
+          <button onClick={() => setActiveTab('alunos')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'alunos' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
+            🎓 Alunos Cadastrados
           </button>
         </div>
 
         <main className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           {activeTab === 'entradas' && (
             <div className="p-6">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 className="text-xl font-bold text-gray-800">Log de Acessos</h2>
-                <div className="flex items-center space-x-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                  <label className="text-xs font-black text-gray-500 uppercase ml-2">Data:</label>
-                  <input
-                    type="date"
-                    value={filtroData}
-                    onChange={(e) => {
-                      const novaData = e.target.value;
-                      setFiltroData(novaData);
-                      carregarEntradas(novaData);
-                    }}
-                    className="bg-transparent border-none focus:ring-0 text-sm font-bold text-gray-700"
-                  />
-                </div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800">Histórico de Acessos</h2>
+                <input
+                  type="date"
+                  value={filtroData}
+                  onChange={(e) => setFiltroData(e.target.value)}
+                  className="bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-2 font-bold text-sm outline-none focus:border-blue-500"
+                />
               </div>
 
               <div className="overflow-x-auto">
@@ -201,64 +129,45 @@ export default function AdmDashboard() {
                       <th className="p-4">Aluno / Turma</th>
                       <th className="p-4">Horário / Aula</th>
                       <th className="p-4">Status</th>
-                      <th className="p-4 text-center">Ações / Documento</th>
+                      <th className="p-4 text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {entradasFiltradas.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="p-10 text-center text-gray-400 italic">Nenhum registro para esta data.</td>
+                    {entradas.map(e => (
+                      <tr key={e.id} className="hover:bg-gray-50">
+                        <td className="p-4">
+                          <p className="font-bold text-gray-800 uppercase text-sm">{e.nome_aluno}</p>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">RA: {e.ra_aluno} | {e.turma_aluno}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className="font-bold text-gray-700">{e.horario}</p>
+                          <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">{e.aula_numero}ª Aula</p>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                            e.status === 'liberado' ? 'bg-green-100 text-green-700' : 
+                            e.status === 'pendente' ? 'bg-blue-600 text-white animate-pulse' :
+                            e.status === 'bloqueado' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {e.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center flex justify-center space-x-2">
+                          {e.status === 'pendente' && (
+                            <>
+                              <button onClick={() => atualizarStatus(e.id, 'liberado')} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600">✅</button>
+                              <button onClick={() => atualizarStatus(e.id, 'direcao')} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600">Direção</button>
+                            </>
+                          )}
+                          {e.status === 'liberado' && (
+                            <button onClick={() => gerarPDFAssinatura({
+                              nome: e.nome_aluno, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno,
+                              data: e.data, horario: e.horario, aulaNumero: e.aula_numero
+                            })} className="text-[10px] font-black text-blue-600 uppercase border-b-2 border-blue-200">Re-imprimir PDF</button>
+                          )}
+                        </td>
                       </tr>
-                    ) : (
-                      entradasFiltradas.map(e => (
-                        <tr key={e.id} className={`transition-colors ${e.status === 'pendente' ? 'bg-blue-50 animate-pulse' : 'hover:bg-gray-50'}`}>
-                          <td className="p-4">
-                            <p className="font-bold text-gray-800">{e.nome_aluno}</p>
-                            <p className="text-xs text-gray-500">RG: {e.rg_aluno} | {e.turma_aluno}</p>
-                          </td>
-                          <td className="p-4">
-                            <p className="font-bold text-gray-700">{e.horario}</p>
-                            <p className="text-xs text-blue-600 font-bold uppercase">{e.aula_numero}ª Aula</p>
-                          </td>
-                          <td className="p-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                              e.status === 'liberado' ? 'bg-green-100 text-green-700' : 
-                              e.status === 'pendente' ? 'bg-blue-600 text-white' :
-                              e.status === 'bloqueado' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                            }`}>
-                              {e.status === 'direcao' ? 'Encaminhado Direção' : e.status}
-                            </span>
-                          </td>
-                          <td className="p-4 text-center">
-                            {e.status === 'pendente' ? (
-                              <div className="flex space-x-2 justify-center">
-                                <button 
-                                  onClick={() => atualizarStatus(e.id, 'liberado')}
-                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg transition-all"
-                                >
-                                  ✅ Liberar
-                                </button>
-                                <button 
-                                  onClick={() => atualizarStatus(e.id, 'direcao')}
-                                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-all"
-                                >
-                                  Direção
-                                </button>
-                              </div>
-                            ) : (
-                              e.status === 'liberado' && (
-                                <button 
-                                  onClick={() => imprimirPDF(e)}
-                                  className="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors"
-                                >
-                                  🖨️ Re-imprimir
-                                </button>
-                              )
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -267,22 +176,14 @@ export default function AdmDashboard() {
 
           {activeTab === 'alunos' && (
             <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">Cadastro de Alunos</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-6">Lista de Alunos Registrados</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {studentsData.map(aluno => (
-                  <div key={aluno.ra} className="p-4 border border-gray-100 rounded-2xl bg-gray-50 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="font-black text-gray-800">{aluno.nome}</p>
-                      <span className={`text-[9px] font-black px-2 py-1 rounded-md uppercase ${
-                        aluno.liberadoSegundaAula ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                      }`}>
-                        {aluno.liberadoSegundaAula ? 'OK 2ª Aula' : 'Bloqueado 2ª'}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-gray-500 font-bold uppercase">RA: <span className="text-gray-700">{aluno.ra}</span></p>
-                      <p className="text-xs text-gray-500 font-bold uppercase">RG: <span className="text-gray-700">{aluno.rg}</span></p>
-                      <p className="text-xs text-gray-500 font-bold uppercase">Turma: <span className="text-gray-700">{aluno.turma}</span></p>
+                  <div key={aluno.ra} className="p-4 border border-gray-100 rounded-2xl bg-gray-50">
+                    <p className="font-black text-gray-800 uppercase text-xs">{aluno.nome}</p>
+                    <div className="mt-2 text-[10px] font-bold text-gray-400 space-y-1">
+                      <p>RA: <span className="text-gray-600">{aluno.ra.replace(/\D/g, '')}</span></p>
+                      <p>TURMA: <span className="text-gray-600">{aluno.turma}</span></p>
                     </div>
                   </div>
                 ))}
