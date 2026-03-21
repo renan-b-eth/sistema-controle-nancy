@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { gerarPDFAssinatura, gerarRelatorioGeral } from '@/utils/pdfGenerator';
 import { getDataEscolar } from '@/utils/horarios';
+import { supabase } from '@/utils/supabase';
 
 interface Entrada {
   id: string;
@@ -41,24 +42,13 @@ export default function AdmDashboard() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
 
-  const playNotification = () => {
-    if (audioRef.current) audioRef.current.play().catch(() => {});
-  };
-
+  // Função para carregar dados iniciais e via polling de segurança
   const carregarEntradas = useCallback(async (dataParaFiltrar: string) => {
     try {
       const response = await fetch(`/api/adm/entradas?data=${dataParaFiltrar}`);
       if (!response.ok) throw new Error('Erro na API');
       const data = await response.json();
-      
-      // Verifica se há novas entradas pendentes para tocar o som
-      setEntradas(prev => {
-        const novasPendentes = data.filter((e: any) => 
-          e.status === 'pendente' && !prev.some(p => p.id === e.id && p.status === 'pendente')
-        );
-        if (novasPendentes.length > 0) playNotification();
-        return data;
-      });
+      setEntradas(data);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
 
@@ -70,6 +60,22 @@ export default function AdmDashboard() {
     } catch (e) { console.error(e); }
   }, []);
 
+  // Gerenciamento do Alarme Persistente
+  useEffect(() => {
+    const temPendentes = entradas.some(e => e.status === 'pendente' && e.data === getDataEscolar());
+    
+    if (temPendentes) {
+      if (audioRef.current && audioRef.current.paused) {
+        audioRef.current.play().catch(err => console.log("Interação necessária para áudio:", err));
+      }
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }
+  }, [entradas]);
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -77,12 +83,33 @@ export default function AdmDashboard() {
       return;
     }
     setUser(JSON.parse(storedUser));
+    
+    // Configuração do Áudio (Loop contínuo)
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audioRef.current.loop = true;
+
     carregarEntradas(filtroData);
     carregarAlunos();
 
-    // Polling mais agressivo (2s) para parecer "live"
-    const interval = setInterval(() => carregarEntradas(filtroData), 2000);
+    // 1. SINCRONIZAÇÃO EM TEMPO REAL (SUPABASE)
+    if (supabase) {
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'entradas'
+        }, () => {
+          // Quando qualquer coisa mudar no banco (nova entrada ou update), recarrega
+          carregarEntradas(filtroData);
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    }
+
+    // 2. Polling de Backup (caso o realtime falhe)
+    const interval = setInterval(() => carregarEntradas(filtroData), 5000);
     return () => clearInterval(interval);
   }, [filtroData, carregarEntradas, carregarAlunos, router]);
 
@@ -92,7 +119,7 @@ export default function AdmDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status: novoStatus })
     });
-    carregarEntradas(filtroData);
+    // O realtime cuidará de atualizar a lista automaticamente
   };
 
   const handleCadastrar = async (e: React.FormEvent) => {
@@ -130,27 +157,41 @@ export default function AdmDashboard() {
         
         {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-center bg-card p-6 sm:p-8 rounded-[2rem] border border-border shadow-sm gap-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 text-6xl font-black text-foreground/5 pointer-events-none">ADM</div>
+          <div className="absolute top-0 right-0 p-8 text-6xl font-black text-foreground/5 pointer-events-none italic">ADM</div>
           <div className="flex items-center space-x-5">
             <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-primary/20 italic">N</div>
             <div>
-              <h1 className="text-2xl font-black text-foreground tracking-tight">PortãoEdu <span className="text-secondary font-light">GESTÃO</span></h1>
+              <h1 className="text-2xl font-black text-foreground tracking-tight italic">PortãoEdu <span className="text-secondary font-light">GESTÃO</span></h1>
               <p className="text-[10px] text-secondary font-black uppercase tracking-widest">E.E. Nancy de Oliveira Fidalgo</p>
             </div>
           </div>
           <div className="flex space-x-3 w-full md:w-auto">
             <div className="px-4 py-2 bg-background border border-border rounded-xl flex items-center space-x-2">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-[10px] font-black uppercase text-secondary">Logado como: {user.nome}</span>
+              <span className="text-[10px] font-black uppercase text-secondary">Operador: {user.nome}</span>
             </div>
             <button onClick={() => setMostraModal(true)} className="px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">+ Aluno</button>
             <button onClick={handleLogout} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100">Sair</button>
           </div>
         </header>
 
+        {/* Alerta Visual de Aluno Pendente */}
+        {entradas.some(e => e.status === 'pendente') && (
+          <div className="bg-orange-500 text-white p-6 rounded-[2rem] flex items-center justify-between animate-pulse shadow-2xl shadow-orange-200">
+            <div className="flex items-center space-x-4">
+              <span className="text-4xl">🔔</span>
+              <div>
+                <p className="font-black uppercase italic tracking-tighter text-xl">Atenção Carlos/Ivone!</p>
+                <p className="font-bold opacity-80 text-sm uppercase">Há alunos aguardando liberação no portão.</p>
+              </div>
+            </div>
+            <button onClick={() => audioRef.current?.play()} className="px-4 py-2 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest">Ativar Som (se mudo)</button>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <div className={`p-6 rounded-[2rem] border transition-all duration-500 shadow-sm ${entradas.some(e => e.status === 'pendente') ? 'bg-orange-500 text-white animate-pulse' : 'bg-card border-border'}`}>
+          <div className={`p-6 rounded-[2rem] border transition-all duration-500 shadow-sm ${entradas.some(e => e.status === 'pendente') ? 'bg-orange-500 text-white' : 'bg-card border-border'}`}>
             <p className="text-[10px] font-black uppercase mb-1 opacity-70 tracking-widest">Aguardando</p>
             <p className="text-4xl font-black italic">{entradas.filter(e => e.status === 'pendente').length}</p>
           </div>
@@ -179,13 +220,12 @@ export default function AdmDashboard() {
           {activeTab === 'entradas' ? (
             <div className="p-6 sm:p-10">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
-                <h2 className="text-2xl font-black text-foreground tracking-tight uppercase italic border-l-4 border-primary pl-4">Pedidos de Entrada</h2>
+                <h2 className="text-2xl font-black text-foreground tracking-tight uppercase italic border-l-4 border-primary pl-4">Entradas em Tempo Real</h2>
                 <div className="flex w-full sm:w-auto space-x-2">
                    <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} className="bg-background border border-border rounded-xl px-4 py-3 font-bold text-xs outline-none focus:border-primary w-full text-foreground" />
                 </div>
               </div>
               
-              {/* Responsive Table/List */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
@@ -242,7 +282,7 @@ export default function AdmDashboard() {
                 </table>
               </div>
 
-              {/* Mobile Card List */}
+              {/* Mobile View */}
               <div className="md:hidden space-y-4">
                 {entradas.length === 0 ? (
                   <div className="py-20 text-center text-secondary font-black uppercase italic tracking-widest opacity-30 text-foreground">Vazio</div>
@@ -256,16 +296,6 @@ export default function AdmDashboard() {
                       <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
                         e.status === 'liberado' ? 'bg-emerald-100 text-emerald-700' : e.status === 'pendente' ? 'bg-primary text-white' : 'bg-red-100 text-red-700'
                       }`}>{e.status}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 bg-card p-3 rounded-2xl border border-border">
-                      <div className="text-center border-r border-border">
-                        <p className="text-[8px] font-black text-secondary uppercase mb-1">Horário</p>
-                        <p className="text-xs font-black text-foreground">{e.horario}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[8px] font-black text-secondary uppercase mb-1">Aula</p>
-                        <p className="text-xs font-black text-primary">{e.aula_numero}ª</p>
-                      </div>
                     </div>
                     <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-widest text-secondary pt-2">
                        <span>Gestor: {e.autorizado_por || '-'}</span>
@@ -319,30 +349,17 @@ export default function AdmDashboard() {
               <div className="flex justify-between items-center mb-10 border-b border-border pb-6">
                 <div>
                   <h3 className="text-3xl font-black text-foreground uppercase italic tracking-tighter">Novo Aluno</h3>
-                  <p className="text-[10px] text-secondary font-black uppercase tracking-widest mt-1 text-foreground">Cadastro de identificação escolar</p>
                 </div>
-                <button onClick={() => setMostraModal(false)} className="w-10 h-10 flex items-center justify-center text-secondary hover:text-foreground text-3xl font-light rounded-full hover:bg-background transition-all">×</button>
+                <button onClick={() => setMostraModal(false)} className="text-secondary text-3xl">×</button>
               </div>
               <form onSubmit={handleCadastrar} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">Nome Completo</label>
-                  <input required value={novoAluno.nome} onChange={e => setNovoAluno({...novoAluno, nome: e.target.value})} type="text" placeholder="Ex: Maria Eduarda Silva" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
-                </div>
+                <input required value={novoAluno.nome} onChange={e => setNovoAluno({...novoAluno, nome: e.target.value})} type="text" placeholder="Nome Completo" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold outline-none text-foreground" />
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1 text-foreground">RA Escolar</label>
-                    <input required value={novoAluno.ra} onChange={e => setNovoAluno({...novoAluno, ra: e.target.value})} type="text" placeholder="123456789" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1 text-foreground">RG</label>
-                    <input required value={novoAluno.rg} onChange={e => setNovoAluno({...novoAluno, rg: e.target.value})} type="text" placeholder="Só números" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
-                  </div>
+                  <input required value={novoAluno.ra} onChange={e => setNovoAluno({...novoAluno, ra: e.target.value})} type="text" placeholder="RA" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold outline-none text-foreground" />
+                  <input required value={novoAluno.rg} onChange={e => setNovoAluno({...novoAluno, rg: e.target.value})} type="text" placeholder="RG" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold outline-none text-foreground" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1 text-foreground">Turma Atual</label>
-                  <input required value={novoAluno.turma} onChange={e => setNovoAluno({...novoAluno, turma: e.target.value})} type="text" placeholder="Ex: 3ª E" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold focus:border-primary outline-none text-foreground" />
-                </div>
-                <button type="submit" className="w-full py-5 bg-primary text-white rounded-[1.5rem] font-black uppercase shadow-xl shadow-primary/30 hover:bg-primary-hover hover:scale-[1.02] transition-all active:scale-95">SALVAR CADASTRO NO SISTEMA</button>
+                <input required value={novoAluno.turma} onChange={e => setNovoAluno({...novoAluno, turma: e.target.value})} type="text" placeholder="Turma" className="w-full bg-background border border-border rounded-2xl px-6 py-4 text-sm font-bold outline-none text-foreground" />
+                <button type="submit" className="w-full py-5 bg-primary text-white rounded-[1.5rem] font-black uppercase">SALVAR CADASTRO</button>
               </form>
             </div>
           </div>

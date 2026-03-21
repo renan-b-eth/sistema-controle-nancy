@@ -114,13 +114,32 @@ export default function LandingPage() {
              </a>
              <a href="https://www.estahack.com" target="_blank" className="group p-10 bg-white/5 rounded-[3rem] border border-white/10 hover:bg-white/10 transition-all hover:scale-[1.02]">
                 <div className="flex justify-between items-start mb-8">
-                  <div className="p-4 bg-indigo-500 rounded-2xl text-3xl">💻</div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">CyberSec</span>
+                  <div className="p-4 bg-indigo-500 rounded-2xl text-3xl">🚀</div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Hackathon Escolar</span>
                 </div>
                 <h3 className="text-3xl font-black mb-4 italic uppercase">Estahack</h3>
-                <p className="text-white/60 font-medium leading-relaxed mb-8">Portal focado em segurança ofensiva e desenvolvimento ético, unindo a comunidade de tecnologia em torno de desafios reais.</p>
+                <p className="text-white/60 font-medium leading-relaxed mb-8">O maior hackathon das escolas públicas de São Paulo focado em desenvolvimento de sistemas. Um movimento de inovação com sede na <span className="text-indigo-400 font-bold">E.E. Nancy de Oliveira Fidalgo</span>.</p>
                 <span className="text-[10px] font-black uppercase tracking-widest text-white/40 border-b border-white/20 pb-1 group-hover:text-indigo-400 group-hover:border-indigo-400 transition-all">estahack.com →</span>
              </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="sobre" className="py-24 px-4 sm:px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-foreground text-background rounded-[4rem] p-8 sm:p-20 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-10 text-9xl font-black text-white/5 pointer-events-none italic">IMPACTO</div>
+            <div className="relative z-10 max-w-3xl space-y-8">
+              <h2 className="text-4xl sm:text-6xl font-black tracking-tighter leading-none italic uppercase">Educação + Tecnologia = Futuro</h2>
+              <p className="text-lg sm:text-xl text-white/70 font-medium leading-relaxed font-sans">
+                Este projeto nasceu da necessidade de modernizar os processos manuais da escola pública. O <span className="text-primary font-bold">PortãoEdu</span> não é apenas um software, é uma ferramenta de transformação social que otimiza o tempo pedagógico. Através do <span className="text-indigo-400 font-bold italic">Estahack</span>, o maior hackathon escolar de São Paulo com sede na <span className="text-primary font-bold">Nancy</span>, levamos essa cultura de inovação para toda a rede pública.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 pt-10">
+                <div><p className="text-3xl font-black text-primary italic">100%</p><p className="text-[10px] font-black uppercase tracking-widest text-white/40">Digital</p></div>
+                <div><p className="text-3xl font-black text-indigo-400 italic">Nancy</p><p className="text-[10px] font-black uppercase tracking-widest text-white/40">Sede Principal</p></div>
+                <div><p className="text-3xl font-black text-emerald-400 italic">Live</p><p className="text-[10px] font-black uppercase tracking-widest text-white/40">Status</p></div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

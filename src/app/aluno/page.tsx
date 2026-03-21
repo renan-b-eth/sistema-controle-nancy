@@ -74,6 +74,8 @@ export default function AlunoDashboard() {
     if (!processado && aula) {
       registrarSolicitacao(parsedUser, aula);
       setProcessado(true);
+    } else if (!aula) {
+      setErrorEnvio("Sistema indisponível fora do horário escolar.");
     }
 
     const interval = setInterval(() => {
@@ -111,7 +113,17 @@ export default function AlunoDashboard() {
   }, [protocoloGerado, statusAtual, assinaturaStatus, verificarStatus]);
 
   const registrarSolicitacao = async (u: any, aula: Aula) => {
-    const horarioAtual = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const agora = new Date();
+    const horaBrasilia = new Date(agora.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+    const horaAtual = horaBrasilia.getHours();
+
+    // Bloqueia registro se não for noite (God login ignorado para teste)
+    if (horaAtual < 19 && u.ra !== '00000000000') {
+      setErrorEnvio("O registro de entrada só é permitido a partir das 19:00.");
+      return;
+    }
+
+    const horarioAtual = horaBrasilia.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const protocolo = `PE-${Date.now()}`;
     const dataAtual = getDataEscolar();
     setProtocoloGerado(protocolo);
@@ -180,7 +192,7 @@ export default function AlunoDashboard() {
       <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-[-5%] right-[-5%] w-[30%] h-[30%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-      <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+      <div className="max-w-4xl mx-auto space-y-8 animate-fade-in text-foreground">
         
         {/* Header */}
         <header className="flex justify-between items-center bg-card/70 backdrop-blur-xl p-6 rounded-[2rem] border border-border shadow-sm">
@@ -202,7 +214,7 @@ export default function AlunoDashboard() {
           <div className="p-6 bg-red-500 text-white rounded-[2rem] shadow-xl animate-bounce flex items-center space-x-4 border-4 border-white">
             <span className="text-3xl">⚠️</span>
             <div>
-              <h3 className="font-black uppercase text-xs tracking-widest">Erro de Sincronização</h3>
+              <h3 className="font-black uppercase text-xs tracking-widest">Atenção</h3>
               <p className="font-bold text-xs opacity-90">{errorEnvio}</p>
             </div>
           </div>
@@ -214,7 +226,7 @@ export default function AlunoDashboard() {
             <div className="p-8 sm:p-12 bg-primary text-white rounded-[3rem] shadow-2xl border-4 border-white relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">WAIT</div>
               <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
-                <span className="mr-4 animate-spin-slow text-foreground">⏳</span> AGUARDANDO
+                <span className="mr-4 animate-spin-slow">⏳</span> AGUARDANDO
               </h2>
               <p className="text-lg font-bold opacity-90 leading-relaxed max-w-xl relative z-10">
                 Olá {user.nome.split(' ')[0]}, sua solicitação para a <span className="bg-white/20 px-3 py-1 rounded-lg font-black">{aulaAtual?.numero || 1}ª aula</span> foi enviada. 
@@ -248,7 +260,7 @@ export default function AlunoDashboard() {
             </div>
           ) : (
             <div className="p-8 sm:p-12 bg-red-600 text-white rounded-[3rem] shadow-2xl border-4 border-white animate-in slide-in-from-top duration-500 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic text-foreground">STOP</div>
+              <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">STOP</div>
               <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
                 <span className="mr-4 text-5xl">⚠️</span> ATENÇÃO!
               </h2>
@@ -280,8 +292,8 @@ export default function AlunoDashboard() {
           {/* User Details */}
           <div className="bg-card p-10 rounded-[3rem] shadow-sm border border-border relative overflow-hidden flex flex-col justify-center">
             <div className="absolute top-0 right-0 p-8 text-6xl font-black text-foreground/5 pointer-events-none italic">Nancy</div>
-            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight relative border-l-4 border-primary pl-4">Cartão de Acesso</h2>
-            <div className="space-y-6 relative font-sans">
+            <h2 className="text-2xl font-black text-foreground mb-10 tracking-tight relative border-l-4 border-primary pl-4 uppercase">Cartão de Acesso</h2>
+            <div className="space-y-6 relative">
               <div className="grid grid-cols-2 gap-6">
                 <div className="col-span-2">
                   <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1">Nome do Aluno</p>
