@@ -91,7 +91,7 @@ export default function AlunoDashboard() {
         setStatusAtual(novoStatus);
         setAssinaturaStatus(novaAssinatura);
       })
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         console.log("Status da conexão realtime:", status);
       });
 
