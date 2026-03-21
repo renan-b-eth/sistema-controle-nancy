@@ -38,31 +38,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f8fafc] p-6 font-sans relative overflow-hidden">
-      {/* Background Decorativo */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-100 rounded-full blur-[120px] opacity-60"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-100 rounded-full blur-[120px] opacity-60"></div>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6 font-sans relative overflow-hidden">
+      {/* Decorative Background */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px]"></div>
 
-      <div className="w-full max-w-lg relative z-10">
-        <div className="bg-white/80 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white/50">
+      <div className="w-full max-w-md relative z-10 animate-fade-in">
+        <div className="bg-card/80 backdrop-blur-2xl p-8 sm:p-12 rounded-[2.5rem] shadow-2xl border border-white/20">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl shadow-xl shadow-blue-200 mb-6 transform hover:rotate-6 transition-transform">
-              <span className="text-white text-4xl font-black">N</span>
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-primary to-indigo-600 rounded-[1.5rem] shadow-xl shadow-primary/20 mb-6 transform hover:rotate-6 transition-transform">
+              <span className="text-white text-4xl font-black italic">N</span>
             </div>
-            <h1 className="text-4xl font-black bg-gradient-to-r from-blue-900 to-indigo-800 bg-clip-text text-transparent tracking-tighter">PortãoEdu</h1>
-            <p className="text-gray-400 font-bold mt-2 uppercase tracking-[0.2em] text-[10px]">Escola Nancy de Oliveira Fidalgo</p>
+            <h1 className="text-4xl font-black text-foreground tracking-tighter">PortãoEdu</h1>
+            <p className="text-secondary font-bold mt-2 uppercase tracking-[0.2em] text-[10px]">Escola Nancy de Oliveira Fidalgo</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">RA ou Email Gestão</label>
+              <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">RA ou Email Gestão</label>
               <div className="relative group">
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Digite seu RA (apenas números)"
-                  className="w-full px-6 py-5 bg-white border-2 border-gray-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-gray-700 shadow-sm group-hover:border-blue-200"
+                  placeholder="Digite seu RA ou usuário"
+                  className="w-full px-6 py-4 bg-background border border-border rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-foreground shadow-sm"
                   required
                   disabled={loading}
                 />
@@ -70,14 +70,14 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Senha (Mesmo RA)</label>
+              <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">Senha</label>
               <div className="relative group">
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full px-6 py-5 bg-white border-2 border-gray-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-gray-700 shadow-sm group-hover:border-blue-200"
+                  className="w-full px-6 py-4 bg-background border border-border rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-foreground shadow-sm"
                   required
                   disabled={loading}
                 />
@@ -85,7 +85,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="p-4 bg-red-50/50 backdrop-blur-sm border-2 border-red-100 text-red-600 text-sm font-bold rounded-2xl animate-shake">
+              <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-2xl border border-red-100 animate-bounce">
                 ⚠️ {error}
               </div>
             )}
@@ -93,7 +93,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(37,99,235,0.25)] transition-all active:scale-[0.98] ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full py-4 bg-primary hover:bg-primary-hover text-white rounded-2xl font-black text-lg shadow-xl shadow-primary/25 transition-all active:scale-[0.98] ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -107,8 +107,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-12 pt-8 border-t border-gray-50 text-center">
-            <p className="text-[10px] text-gray-300 font-black uppercase tracking-[0.3em]">
+          <div className="mt-12 pt-8 border-t border-border text-center">
+            <p className="text-[10px] text-secondary font-black uppercase tracking-[0.3em]">
               Gestão Carlos & Ivone • PortãoEdu 2026
             </p>
           </div>
