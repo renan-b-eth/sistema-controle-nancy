@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/utils/prisma';
 import { cookies } from 'next/headers';
-import { nanoid } from 'nanoid';
+import { randomUUID } from 'crypto';
 
 export async function POST(request: Request) {
   try {
@@ -12,37 +12,37 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const user = JSON.parse(session.value);
-    const id = nanoid();
+    
+    // Usamos randomUUID() para evitar problemas com bibliotecas externas no Vercel
+    const id = randomUUID();
 
-    // GRAVAÇÃO VIA SQL PURO (Resolve erro de Cache de Schema 100%)
-    try {
-      await prisma.$executeRawUnsafe(`
-        INSERT INTO "entradas" (
-          "id", "protocolo", "data", "horario", "aula_numero", "status", 
-          "nome_aluno", "ra_aluno", "rg_aluno", "turma_aluno", "aluno_id"
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-        )
-      `, 
-      id, body.protocolo, body.data, body.horario, Number(body.aula_numero), 'pendente',
-      user.nome, user.ra, user.rg, user.turma, user.id.startsWith('fallback') ? null : user.id
-      );
-    } catch (sqlError: any) {
-       console.error('ERRO NO SQL PURO:', sqlError.message);
-       // Tenta novamente sem o $ syntax se falhar (alguns dialetos mudam)
-       await prisma.$executeRawUnsafe(`
-          INSERT INTO "entradas" ("id", "protocolo", "data", "horario", "aula_numero", "status", "nome_aluno", "ra_aluno", "rg_aluno", "turma_aluno")
-          VALUES ('${id}', '${body.protocolo}', '${body.data}', '${body.horario}', ${Number(body.aula_numero)}, 'pendente', '${user.nome}', '${user.ra}', '${user.rg}', '${user.turma}')
-       `);
-    }
+    // Gravação via Prisma (Desta vez mapeando campo por campo explicitamente)
+    await prisma.entrada.create({
+      data: {
+        id: id,
+        protocolo: body.protocolo,
+        data: body.data,
+        horario: body.horario,
+        aula_numero: Number(body.aula_numero),
+        status: 'pendente',
+        nome_aluno: user.nome,
+        ra_aluno: user.ra,
+        rg_aluno: user.rg,
+        turma_aluno: user.turma,
+        aluno_id: user.id.includes('fallback') ? null : user.id
+      }
+    });
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('ERRO CRÍTICO NO REGISTRO:', error);
+    console.error('ERRO NO REGISTRO:', error);
+    
+    // Retornamos o erro exato para você me passar e eu saber o que o banco disse
     return NextResponse.json({ 
-      error: 'Erro de banco de dados. Acesse /api/adm/fix-db para sincronizar as colunas e tente novamente.',
-      details: error.message 
+      error: 'Erro de banco de dados. Verifique os detalhes abaixo.',
+      details: error.message,
+      code: error.code // Código de erro do Prisma (ex: P2002, P2003)
     }, { status: 500 });
   }
 }

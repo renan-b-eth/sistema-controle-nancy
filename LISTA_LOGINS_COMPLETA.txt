@@ -5,6 +5,7 @@
 ADMINISTRAÇÃO (ACESSO CARLOS / IVONE):
 - Carlos: carlos@adm.com | Senha: carlos123
 - Ivone:  ivone@adm.com  | Senha: ivone123
+000000000000
 
 --------------------------------------------------------------------------------
 ALUNOS (LOGIN/SENHA É O RG):

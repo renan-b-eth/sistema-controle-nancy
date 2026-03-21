@@ -3,42 +3,39 @@ import prisma from '@/utils/prisma';
 
 export async function GET() {
   try {
-    console.log('Iniciando Sincronização Forçada do Banco...');
+    console.log('Validando Banco de Dados...');
 
-    // 1. Criar a tabela base se não existir
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "entradas" (
-        "id" TEXT PRIMARY KEY,
-        "protocolo" TEXT UNIQUE NOT NULL,
-        "status" TEXT NOT NULL DEFAULT 'pendente',
-        "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+    // 1. Tentar ler as colunas atuais da tabela entradas
+    const columns: any[] = await prisma.$queryRawUnsafe(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'entradas';
     `);
 
-    // 2. Adicionar colunas faltantes uma a uma (Garante que o banco se adapte)
-    const colunasParaAdicionar = [
-      { nome: 'aluno_id', tipo: 'TEXT' },
-      { nome: 'data', tipo: 'TEXT' },
-      { nome: 'horario', tipo: 'TEXT' },
-      { nome: 'aula_numero', tipo: 'INTEGER' },
-      { nome: 'nome_aluno', tipo: 'TEXT' },
-      { nome: 'ra_aluno', tipo: 'TEXT' },
-      { nome: 'rg_aluno', tipo: 'TEXT' },
-      { nome: 'turma_aluno', tipo: 'TEXT' }
-    ];
-
-    for (const col of colunasParaAdicionar) {
-      try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE "entradas" ADD COLUMN "${col.nome}" ${col.tipo};`);
-        console.log(`Coluna ${col.nome} adicionada.`);
-      } catch (e) {
-        // Ignora erro se a coluna já existir
-      }
+    // 2. Se a tabela não tiver colunas, tenta consertar
+    if (columns.length === 0) {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "entradas" (
+          "id" TEXT PRIMARY KEY,
+          "protocolo" TEXT UNIQUE NOT NULL,
+          "data" TEXT NOT NULL,
+          "horario" TEXT NOT NULL,
+          "aula_numero" INTEGER NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'pendente',
+          "nome_aluno" TEXT NOT NULL,
+          "ra_aluno" TEXT NOT NULL,
+          "rg_aluno" TEXT NOT NULL,
+          "turma_aluno" TEXT NOT NULL,
+          "aluno_id" TEXT,
+          "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Banco de dados sincronizado e colunas atualizadas com sucesso!' 
+      message: 'Banco de dados validado.',
+      columns: columns.map(c => c.column_name)
     });
 
   } catch (error: any) {
