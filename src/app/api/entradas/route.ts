@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         rg_aluno: user.rg,
         turma_aluno: user.turma,
         // Só tenta vincular ID se for um UUID real (não 'god-test' ou 'fallback')
-        aluno_id: (user.id && user.id.length > 20 && !user.id.includes('fallback')) ? user.id : null
+        aluno_id: (user.id && user.id.length >= 20 && !user.id.includes('fallback') && !user.id.includes('test')) ? user.id : null
       }
     });
 
