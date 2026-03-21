@@ -84,7 +84,7 @@ export default function AlunoDashboard() {
         schema: 'public', 
         table: 'entradas',
         filter: `protocolo=eq.${protocoloGerado}`
-      }, (payload) => {
+      }, (payload: any) => {
         console.log("REALTIME RECEBIDO!", payload.new);
         const novoStatus = payload.new.status;
         const novaAssinatura = payload.new.assinatura_status;
