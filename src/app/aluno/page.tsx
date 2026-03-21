@@ -149,6 +149,8 @@ export default function AlunoDashboard() {
     }
   };
 
+  const [termoAceito, setTermoAceito] = useState(false);
+
   const atualizarAssinatura = async (status: 'assinado' | 'recusado') => {
     try {
       const res = await fetch('/api/entradas/signature', {
@@ -158,18 +160,6 @@ export default function AlunoDashboard() {
       });
       if (res.ok) {
         setAssinaturaStatus(status);
-        if (status === 'assinado') {
-          gerarPDFAssinatura({
-            nome: user.nome,
-            ra: user.ra,
-            rg: user.rg,
-            turma: user.turma,
-            data: getDataEscolar(),
-            horario: new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-            aulaNumero: aulaAtual?.numero || 1,
-            status: statusAtual
-          });
-        }
       }
     } catch (e) { console.error(e); }
   };
@@ -228,9 +218,10 @@ export default function AlunoDashboard() {
               <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
                 <span className="mr-4 animate-spin-slow">⏳</span> AGUARDANDO
               </h2>
-              <p className="text-lg font-bold opacity-90 leading-relaxed max-w-xl relative z-10">
+              <p className="text-lg font-bold opacity-90 leading-relaxed max-xl relative z-10">
                 Olá {user.nome.split(' ')[0]}, sua solicitação para a <span className="bg-white/20 px-3 py-1 rounded-lg font-black">{aulaAtual?.numero || 1}ª aula</span> foi enviada. 
-                Aguarde a liberação pela gestão.
+                <br /><br />
+                Sua entrada só será liberada quando <span className="underline decoration-2 underline-offset-4">Ivone ou Carlos</span> autorizarem no sistema. Após a liberação, você deverá assinar digitalmente o motivo da sua chegada em atraso para a coordenação.
               </p>
             </div>
           ) : statusAtual === 'liberado' ? (
@@ -241,20 +232,60 @@ export default function AlunoDashboard() {
               </h2>
               
               {assinaturaStatus === 'pendente' ? (
-                <div className="bg-white/20 backdrop-blur-md p-6 rounded-3xl border border-white/30 space-y-4">
-                  <p className="text-sm font-black uppercase tracking-widest">Confirme sua entrada assinando digitalmente:</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => atualizarAssinatura('assinado')} className="py-4 bg-white text-emerald-600 rounded-2xl font-black uppercase text-xs hover:bg-emerald-50 transition-all">Assinar Documento</button>
-                    <button onClick={() => atualizarAssinatura('recusado')} className="py-4 bg-emerald-700/50 text-white rounded-2xl font-black uppercase text-xs hover:bg-emerald-800 transition-all">Recusar Assinatura</button>
+                <div className="bg-white/20 backdrop-blur-md p-6 sm:p-8 rounded-[2.5rem] border border-white/30 space-y-6">
+                  <div className="space-y-2">
+                    <p className="text-xl font-black uppercase tracking-tight">🎉 Entrada Autorizada!</p>
+                    <p className="text-sm font-bold opacity-90 leading-relaxed">
+                      Dirija-se à coordenação para assinar o documento de entrada tardia <span className="underline font-black italic">manualmente (no papel)</span>. 
+                      Após assinar, confirme sua entrada abaixo:
+                    </p>
+                  </div>
+
+                  <div className="bg-emerald-900/20 p-6 rounded-2xl border border-white/10 group cursor-pointer" onClick={() => setTermoAceito(!termoAceito)}>
+                    <label className="flex items-start space-x-4 cursor-pointer">
+                      <div className="relative flex items-center justify-center">
+                        <input 
+                          type="checkbox" 
+                          checked={termoAceito}
+                          onChange={(e) => setTermoAceito(e.target.checked)}
+                          className="peer appearance-none w-6 h-6 border-2 border-white rounded-md checked:bg-white transition-all cursor-pointer"
+                        />
+                        <span className="absolute text-emerald-600 font-black scale-0 peer-checked:scale-100 transition-transform">✓</span>
+                      </div>
+                      <span className="text-xs font-bold leading-tight select-none">
+                        Eu entendo que cheguei atrasado e afirmo que assinei o documento manualmente na coordenação. 
+                        Compreendo o motivo do registro e aceito as políticas de frequência da escola.
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button 
+                      disabled={!termoAceito}
+                      onClick={() => atualizarAssinatura('assinado')} 
+                      className={`py-5 rounded-2xl font-black uppercase text-xs transition-all shadow-xl ${termoAceito ? 'bg-white text-emerald-600 hover:scale-[1.02] active:scale-95' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
+                    >
+                      Confirmar Entrada
+                    </button>
+                    <button 
+                      onClick={() => atualizarAssinatura('recusado')} 
+                      className="py-5 bg-emerald-700/30 text-white rounded-2xl font-black uppercase text-xs hover:bg-emerald-800 transition-all border border-white/10"
+                    >
+                      Recusar / Problemas
+                    </button>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-xl font-black mb-2 uppercase">Entrada Confirmada!</p>
-                  <p className="text-sm font-bold opacity-90 max-w-xl italic">
-                    {assinaturaStatus === 'assinado' ? 'Você assinou o documento. O comprovante PDF foi baixado automaticamente.' : 'Você recusou a assinatura. A ocorrência foi registrada no sistema.'}
+                <div className="space-y-4 animate-fade-in">
+                  <p className="text-2xl font-black mb-2 uppercase italic tracking-tighter">Acesso Confirmado!</p>
+                  <p className="text-sm font-bold opacity-90 max-w-xl">
+                    {assinaturaStatus === 'assinado' 
+                      ? 'Você confirmou a ciência dos termos e a assinatura manual. Prossiga para sua sala de aula.' 
+                      : 'Você registrou uma recusa ou problema na assinatura. Procure a direção caso necessário.'}
                   </p>
-                  <button onClick={() => window.location.reload()} className="px-6 py-2 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/30 transition-all">Baixar PDF Novamente</button>
+                  <div className="inline-block px-6 py-2 bg-white text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                    Bom estudo!
+                  </div>
                 </div>
               )}
             </div>

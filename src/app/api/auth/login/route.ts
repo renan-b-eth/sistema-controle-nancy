@@ -20,6 +20,10 @@ export async function POST(request: Request) {
     const horaBrasilia = new Date(agora.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
     const horaAtual = horaBrasilia.getHours();
 
+    // Check for bypass config
+    const config = await prisma.config.findUnique({ where: { key: 'BYPASS_TIME_RESTRICTION' } });
+    const isBypassActive = config?.value === 'true';
+
     let userData = null;
 
     // 1. LOGIN "GOD"
@@ -43,7 +47,7 @@ export async function POST(request: Request) {
           });
 
           if (aluno && (cleanUser === cleanPass)) {
-            if (horaAtual < 19) {
+            if (horaAtual < 19 && !isBypassActive) {
               return NextResponse.json({ error: 'O login só vai funcionar quando estiver em horário escolar por segurança.' }, { status: 403 });
             }
             userData = { id: aluno.id, nome: aluno.nome, ra: aluno.ra, rg: aluno.rg, turma: aluno.turma, profile: 'Aluno', liberadoSegundaAula: aluno.liberado_segunda_aula };
@@ -68,7 +72,7 @@ export async function POST(request: Request) {
           return (sCleanRa === cleanUser || sCleanRg === cleanUser) && cleanUser === cleanPass;
         });
         if (student) {
-          if (horaAtual < 19) return NextResponse.json({ error: 'O login só vai funcionar em horário escolar.' }, { status: 403 });
+          if (horaAtual < 19 && !isBypassActive) return NextResponse.json({ error: 'O login só vai funcionar em horário escolar.' }, { status: 403 });
           userData = { id: `fallback-${student.ra}`, nome: student.nome, ra: student.ra, rg: student.rg, turma: student.turma, profile: 'Aluno', liberadoSegundaAula: student.liberadoSegundaAula ?? true };
         }
       }

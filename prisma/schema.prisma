@@ -52,3 +52,11 @@ model Admin {
 
   @@map("admins")
 }
+
+model Config {
+  id    String @id @default("system_settings")
+  key   String @unique
+  value String
+
+  @@map("system_configs")
+}
