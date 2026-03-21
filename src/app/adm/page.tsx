@@ -110,7 +110,7 @@ export default function AdmDashboard() {
     if (supabase) {
       const channel = supabase
         .channel('adm-realtime-global')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'entradas' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'entradas' }, (payload: any) => {
           console.log("Realtime ADM Update:", payload);
           carregarEntradas(filtroData);
         })
