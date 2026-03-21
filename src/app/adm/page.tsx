@@ -117,11 +117,18 @@ export default function AdmDashboard() {
   }, [filtroData, carregarEntradas, carregarAlunos, carregarConfig, router]);
 
   const atualizarStatus = async (id: string, novoStatus: string) => {
-    await fetch('/api/adm/entradas/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: novoStatus })
-    });
+    try {
+      const res = await fetch('/api/adm/entradas/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: novoStatus })
+      });
+      if (res.ok) {
+        console.log(`Status ${id} atualizado para ${novoStatus} com sucesso.`);
+      }
+    } catch (e) {
+      console.error("Erro ao atualizar status:", e);
+    }
   };
 
   const repararBanco = async () => {
