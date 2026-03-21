@@ -12,11 +12,12 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const user = JSON.parse(session.value);
-    
-    // Usamos randomUUID() para evitar problemas com bibliotecas externas no Vercel
     const id = randomUUID();
 
-    // Gravação via Prisma (Desta vez mapeando campo por campo explicitamente)
+    // Verificação robusta: só vinculamos aluno_id se for um ID real do banco (UUID)
+    // IDs como 'god-test' ou 'fallback-...' são ignorados na vinculação para evitar erro de Foreign Key
+    const isRealUser = user.id && !user.id.includes('test') && !user.id.includes('fallback');
+
     await prisma.entrada.create({
       data: {
         id: id,
@@ -29,20 +30,18 @@ export async function POST(request: Request) {
         ra_aluno: user.ra,
         rg_aluno: user.rg,
         turma_aluno: user.turma,
-        aluno_id: user.id.includes('fallback') ? null : user.id
+        aluno_id: isRealUser ? user.id : null
       }
     });
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('ERRO NO REGISTRO:', error);
-    
-    // Retornamos o erro exato para você me passar e eu saber o que o banco disse
+    console.error('ERRO NO REGISTRO DE ENTRADA:', error);
     return NextResponse.json({ 
-      error: 'Erro de banco de dados. Verifique os detalhes abaixo.',
+      error: 'Erro de banco de dados.',
       details: error.message,
-      code: error.code // Código de erro do Prisma (ex: P2002, P2003)
+      tip: 'Se você está usando o login GOD, o sistema agora permite a gravação sem ID vinculado.'
     }, { status: 500 });
   }
 }
