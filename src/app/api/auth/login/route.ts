@@ -7,54 +7,55 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { username, password } = body;
 
+    console.log('Tentativa de login:', { username });
+
     if (!username || !password) {
       return NextResponse.json({ error: 'Usuário e senha são obrigatórios.' }, { status: 400 });
     }
 
-    const normalizedUser = username.replace(/\D/g, '');
-    const normalizedPass = password.replace(/\D/g, '');
-
     let userData = null;
 
     // 1. Tentar Login como Administrador (Email)
-    try {
-      const admin = await prisma.admin.findUnique({
-        where: { email: username }
-      });
+    // Para administradores, comparamos o email e senha exatamente como fornecidos
+    const admin = await prisma.admin.findUnique({
+      where: { email: username }
+    });
 
-      if (admin && admin.senha === password) {
-        userData = {
-          id: admin.id,
-          nome: admin.nome,
-          email: admin.email,
-          profile: 'ADM'
-        };
-      }
-    } catch (dbError) {
-      console.error('Erro ao buscar Admin no banco:', dbError);
-      // Se o erro for de conexão, continuamos para tentar o aluno ou falhar no fim
+    if (admin && admin.senha === password) {
+      userData = {
+        id: admin.id,
+        nome: admin.nome,
+        email: admin.email,
+        profile: 'ADM'
+      };
     }
 
-    // 2. Tentar Login como Aluno (RA)
-    if (!userData && normalizedUser === normalizedPass && normalizedUser.length > 0) {
-      try {
-        const aluno = await prisma.aluno.findUnique({
-          where: { ra: normalizedUser }
-        });
-
-        if (aluno) {
-          userData = {
-            id: aluno.id,
-            nome: aluno.nome,
-            ra: aluno.ra,
-            rg: aluno.rg,
-            turma: aluno.turma,
-            profile: 'Aluno',
-            liberadoSegundaAula: aluno.liberado_segunda_aula
-          };
+    // 2. Tentar Login como Aluno (RG/RA)
+    if (!userData) {
+      // De acordo com a LISTA_LOGINS_COMPLETA.txt, o login/senha é o RG.
+      // Alguns RGs contêm hífens e letras (ex: 000111738164-X).
+      // Vamos tentar buscar o aluno pelo RA ou RG usando o username fornecido.
+      
+      const aluno = await prisma.aluno.findFirst({
+        where: {
+          OR: [
+            { ra: username },
+            { rg: username }
+          ]
         }
-      } catch (dbError) {
-        console.error('Erro ao buscar Aluno no banco:', dbError);
+      });
+
+      // A senha deve ser igual ao username (RG) conforme a regra da lista
+      if (aluno && (username === password)) {
+        userData = {
+          id: aluno.id,
+          nome: aluno.nome,
+          ra: aluno.ra,
+          rg: aluno.rg,
+          turma: aluno.turma,
+          profile: 'Aluno',
+          liberadoSegundaAula: aluno.liberado_segunda_aula
+        };
       }
     }
 
@@ -73,9 +74,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Credenciais inválidas. Verifique seus dados.' }, { status: 401 });
 
   } catch (error: any) {
-    console.error('CRITICAL LOGIN ERROR:', error);
+    console.error('ERRO CRÍTICO NO LOGIN:', error);
     return NextResponse.json({ 
-      error: 'Erro de conexão com o banco de dados. Verifique se o banco está ativo.',
+      error: 'Erro de processamento no servidor.',
       details: error.message 
     }, { status: 500 });
   }

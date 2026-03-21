@@ -16,7 +16,7 @@ async function main() {
   for (const adminData of admins) {
     await prisma.admin.upsert({
       where: { email: adminData.email },
-      update: {},
+      update: { senha: adminData.senha },
       create: adminData,
     })
   }
@@ -27,27 +27,22 @@ async function main() {
   const studentsData = JSON.parse(fs.readFileSync(studentsFilePath, 'utf-8'))
 
   for (const s of studentsData) {
-    // Normaliza RA e RG (apenas números)
-    const normalizedRa = s.ra.replace(/\D/g, '')
-    const normalizedRg = s.rg.replace(/\D/g, '')
-
-    // Se após normalizar o RA estiver vazio (casos como 'N26001'), mantenha o original mas avise
-    // Ou no caso de produção, deveríamos ter RAs válidos
-    const finalRa = normalizedRa || s.ra
-    const finalRg = normalizedRg || s.rg
-
+    // Agora não normalizamos o RG/RA para números apenas, 
+    // pois a lista oficial contém caracteres como hífens e letras.
+    // O login será o valor exato presente no JSON/Lista.
+    
     await prisma.aluno.upsert({
-      where: { ra: finalRa },
+      where: { ra: s.ra },
       update: {
         nome: s.nome,
-        rg: finalRg,
+        rg: s.rg,
         turma: s.turma,
         liberado_segunda_aula: s.liberadoSegundaAula ?? true
       },
       create: {
         nome: s.nome,
-        rg: finalRg,
-        ra: finalRa,
+        rg: s.rg,
+        ra: s.ra,
         turma: s.turma,
         liberado_segunda_aula: s.liberadoSegundaAula ?? true
       },
