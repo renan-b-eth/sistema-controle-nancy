@@ -9,63 +9,79 @@ interface PDFData {
   data: string;
   horario: string;
   aulaNumero: number;
+  status?: string;
 }
 
-// 1. Gera o Comprovante Individual (para o aluno levar)
 export const gerarPDFAssinatura = (data: PDFData) => {
   const doc = new jsPDF();
+  const isDirecao = data.status === 'direcao';
 
-  // Cabeçalho da Escola
+  // Cabeçalho Oficial
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text('E.E. NANCY DE OLIVEIRA FIDALGO', 105, 20, { align: 'center' });
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Sistema de Controle de Acesso PortãoEdu', 105, 28, { align: 'center' });
-  
-  doc.setLineWidth(0.5);
-  doc.line(20, 35, 190, 35);
+  doc.text('Secretaria de Educação do Estado de São Paulo', 105, 26, { align: 'center' });
+  doc.line(20, 32, 190, 32);
 
   // Título do Documento
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('COMPROVANTE DE ENTRADA / SAÍDA', 105, 45, { align: 'center' });
+  const titulo = isDirecao ? 'GUIA DE ENCAMINHAMENTO À DIREÇÃO' : 'COMPROVANTE DE ENTRADA TARDIA';
+  doc.text(titulo, 105, 45, { align: 'center' });
 
   // Informações do Aluno
-  doc.setFontSize(12);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DADOS DO ALUNO:', 20, 60);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Nome do Aluno: ${data.nome}`, 20, 60);
-  doc.text(`RA: ${data.ra}`, 20, 70);
-  doc.text(`Turma: ${data.turma}`, 20, 80);
-  doc.text(`Data: ${data.data}`, 20, 90);
-  doc.text(`Horário de Registro: ${data.horario}`, 20, 100);
-  doc.text(`Aula Referente: ${data.aulaNumero}ª Aula`, 20, 110);
+  doc.text(`Nome: ${data.nome.toUpperCase()}`, 20, 68);
+  doc.text(`RA: ${data.ra} | Turma: ${data.turma}`, 20, 76);
+  doc.text(`Data: ${data.data} | Horário de Registro: ${data.horario}`, 20, 84);
+  doc.text(`Aula Referente: ${data.aulaNumero}ª Aula`, 20, 92);
 
-  // Espaço para Assinatura (Requisito Obrigatório)
-  doc.line(60, 150, 150, 150);
-  doc.setFontSize(10);
-  doc.text('Assinatura do Responsável / Gestão Escolar', 105, 155, { align: 'center' });
+  if (isDirecao) {
+    // Conteúdo para Direção
+    doc.setDrawColor(200, 0, 0); // Vermelho
+    doc.rect(20, 105, 170, 40);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MOTIVO DO ENCAMINHAMENTO:', 25, 115);
+    doc.setFont('helvetica', 'normal');
+    doc.text('O aluno acima identificado está sendo encaminhado à DIREÇÃO/SECRETARIA', 25, 125);
+    doc.text('para regularização de acesso e/ou medidas disciplinares cabíveis.', 25, 132);
+  } else {
+    // Conteúdo para Entrada com Justificativa
+    doc.setFont('helvetica', 'bold');
+    doc.text('JUSTIFICATIVA DO ATRASO (Preenchimento Manual):', 20, 110);
+    doc.setDrawColor(0);
+    doc.line(20, 125, 190, 125); // Linhas para escrever
+    doc.line(20, 135, 190, 135);
+    doc.line(20, 145, 190, 145);
+  }
 
-  doc.save(`Comprovante_${data.ra}_${data.data}.pdf`);
+  // Rodapé de Assinatura
+  doc.line(60, 180, 150, 180);
+  doc.setFontSize(9);
+  doc.text('Assinatura do Aluno / Responsável', 105, 185, { align: 'center' });
+
+  doc.line(60, 210, 150, 210);
+  doc.text('Carimbo e Assinatura da Gestão Escolar', 105, 215, { align: 'center' });
+
+  doc.save(`${isDirecao ? 'Guia_Direcao' : 'Comprovante'}_${data.ra}.pdf`);
 };
 
-// 2. Gera o Relatório Geral (Histórico para a Gestão)
 export const gerarRelatorioGeral = (entradas: any[], dataFiltro: string) => {
   const doc = new jsPDF();
-
-  // Cabeçalho
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text('E.E. NANCY DE OLIVEIRA FIDALGO', 105, 20, { align: 'center' });
-  
   doc.setFontSize(12);
   doc.text(`RELATÓRIO GERAL DE ACESSOS - ${dataFiltro}`, 105, 30, { align: 'center' });
 
-  // Tabela de Dados
   const tableData = entradas.map(e => [
     e.nome_aluno,
-    e.ra_aluno,
     e.turma_aluno,
     e.horario,
     `${e.aula_numero}ª`,
@@ -74,19 +90,11 @@ export const gerarRelatorioGeral = (entradas: any[], dataFiltro: string) => {
 
   autoTable(doc, {
     startY: 40,
-    head: [['Aluno', 'RA', 'Turma', 'Horário', 'Aula', 'Status']],
+    head: [['Aluno', 'Turma', 'Horário', 'Aula', 'Status']],
     body: tableData,
-    theme: 'striped',
-    headStyles: { fillColor: [30, 58, 138] }, // Azul Escuro (PortãoEdu)
+    theme: 'grid',
+    headStyles: { fillColor: [0, 0, 0] },
   });
 
-  // Rodapé com Assinatura em todas as páginas se necessário, mas aqui faremos no fim
-  const finalY = (doc as any).lastAutoTable.finalY + 30;
-  
-  if (finalY < 250) {
-    doc.line(60, finalY, 150, finalY);
-    doc.text('Assinatura da Direção / Gestão Nancy', 105, finalY + 5, { align: 'center' });
-  }
-
-  doc.save(`Relatorio_Acessos_${dataFiltro}.pdf`);
+  doc.save(`Relatorio_${dataFiltro}.pdf`);
 };
