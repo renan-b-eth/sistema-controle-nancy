@@ -74,32 +74,30 @@ export default function AlunoDashboard() {
   }, [protocoloGerado, user]);
 
   const registrarSolicitacao = async (u: any, aula: Aula) => {
-    if (!supabase) {
-      setErrorEnvio("Sistema de banco de dados offline. Comunique à portaria.");
-      return;
-    }
-
     const horarioAtual = new Date().toLocaleTimeString('pt-BR');
     const protocolo = `PE-${Date.now()}`;
+    const dataAtual = new Date().toISOString().split('T')[0];
     setProtocoloGerado(protocolo);
 
     try {
-      const { error } = await supabase.from('entradas').insert({
-        data: new Date().toISOString().split('T')[0],
-        horario: horarioAtual,
-        aula_numero: aula.numero,
-        status: 'pendente',
-        protocolo: protocolo,
-        nome_aluno: u.nome,
-        ra_aluno: u.ra,
-        rg_aluno: u.rg,
-        turma_aluno: u.turma
+      // CHAMADA PARA O BACK-END (Resolve o erro 100% via Prisma)
+      const response = await fetch('/api/entradas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          protocolo,
+          aula_numero: aula.numero,
+          horario: horarioAtual,
+          data: dataAtual
+        })
       });
 
-      if (error) throw error;
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'Erro no servidor');
+
     } catch (e: any) {
       console.error("Erro ao registrar entrada:", e);
-      setErrorEnvio(`Falha na conexão com o banco: ${e.message}`);
+      setErrorEnvio(`Falha crítica: ${e.message}`);
     }
   };
 
@@ -118,8 +116,6 @@ export default function AlunoDashboard() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-10 font-sans">
       <div className="max-w-5xl mx-auto">
-        
-        {/* Header Compacto */}
         <header className="flex justify-between items-center mb-10 bg-white/70 backdrop-blur-md p-6 rounded-[2rem] border border-white/50 shadow-sm">
           <div className="flex items-center space-x-4">
             <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100">
@@ -135,15 +131,13 @@ export default function AlunoDashboard() {
           </button>
         </header>
 
-        {/* Alerta de Erro de Envio */}
         {errorEnvio && (
           <div className="mb-6 p-6 bg-red-600 text-white rounded-3xl shadow-xl shadow-red-200 border-2 border-white animate-bounce">
-            <h3 className="font-black uppercase text-sm mb-1 tracking-widest">⚠️ ERRO DE CONEXÃO</h3>
+            <h3 className="font-black uppercase text-sm mb-1 tracking-widest">⚠️ ERRO NO SERVIDOR</h3>
             <p className="font-bold text-sm opacity-90">{errorEnvio}</p>
           </div>
         )}
 
-        {/* Status Gigante */}
         <section className="mb-10">
           {statusAtual === 'pendente' ? (
             <div className="relative overflow-hidden p-10 bg-blue-600 text-white rounded-[3rem] shadow-2xl shadow-blue-200 border-4 border-white">
@@ -152,7 +146,7 @@ export default function AlunoDashboard() {
                 <span className="mr-4 animate-bounce">⏳</span> AGUARDANDO
               </h2>
               <p className="text-xl font-bold opacity-90 leading-relaxed max-w-2xl text-blue-50">
-                Olá {user.nome.split(' ')[0]}, sua entrada na <span className="bg-white/20 px-2 py-0.5 rounded">{aulaAtual?.numero}ª aula</span> está sendo analisada pela gestão na portaria. 
+                Olá {user.nome.split(' ')[0]}, sua entrada na <span className="bg-white/20 px-2 py-0.5 rounded">{aulaAtual?.numero}ª aula</span> foi enviada para a gestão na portaria. 
                 Mantenha esta tela aberta.
               </p>
             </div>
@@ -162,7 +156,7 @@ export default function AlunoDashboard() {
                 <span className="mr-4 text-5xl">✅</span> LIBERADO!
               </h2>
               <p className="text-xl font-bold opacity-90 leading-relaxed text-emerald-50">
-                Sua entrada foi autorizada com sucesso. O comprovante de assinatura já foi gerado. Pode prosseguir para a sala de aula.
+                Sua entrada foi autorizada. O comprovante foi gerado.
               </p>
             </div>
           ) : (
@@ -171,14 +165,13 @@ export default function AlunoDashboard() {
                 <span className="mr-4">⚠️</span> ATENÇÃO
               </h2>
               <p className="text-xl font-bold opacity-90 leading-relaxed text-red-50">
-                Sua entrada requer atenção especial. Por favor, dirija-se à <span className="underline font-black">DIREÇÃO</span> ou secretaria para liberação manual.
+                Por favor, dirija-se à <span className="underline font-black">DIREÇÃO</span> ou secretaria.
               </p>
             </div>
           )}
         </section>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-          {/* Identificação Visual */}
           <div className="md:col-span-5 bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
             <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-8">Identidade Digital</h2>
             <div className="relative group">
@@ -188,11 +181,10 @@ export default function AlunoDashboard() {
                </div>
             </div>
             <p className="text-[10px] text-slate-300 mt-10 font-black uppercase tracking-widest animate-pulse">
-              Atualiza automaticamente para segurança
+              Atualiza automaticamente
             </p>
           </div>
 
-          {/* Carteirinha do Aluno */}
           <div className="md:col-span-7 space-y-8">
             <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8">
@@ -214,19 +206,10 @@ export default function AlunoDashboard() {
                   <p className="font-black text-blue-600 text-lg">{user.turma}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Registro de Pedido</p>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Registro</p>
                   <p className="font-black text-slate-700 text-lg">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
-            </div>
-
-            {/* Banner de Ajuda */}
-            <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl text-white flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Dúvidas?</p>
-                <p className="font-black text-lg">Precisa de ajuda com o acesso?</p>
-              </div>
-              <div className="bg-white/10 p-4 rounded-2xl text-2xl">🆘</div>
             </div>
           </div>
         </div>
