@@ -139,6 +139,33 @@ export default function AdmDashboard() {
     router.push('/login');
   };
 
+  const handleCadastrar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch('/api/adm/alunos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(novoAluno)
+    });
+    if (res.ok) {
+      setMostraModal(false);
+      setNovoAluno({ nome: '', ra: '', rg: '', turma: '' });
+      carregarAlunos();
+    } else {
+      alert("Erro ao cadastrar aluno.");
+    }
+  };
+
+  const handleDeletar = async (id: string) => {
+    if (confirm("Deseja realmente remover este aluno do sistema permanentemente?")) {
+      const res = await fetch(`/api/adm/alunos?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        carregarAlunos();
+      } else {
+        alert("Erro ao remover aluno.");
+      }
+    }
+  };
+
   // Funções Simuladas (UI Experience)
   const mockAcao = (acao: string) => alert(`[MÓDULO ATIVADO]\nAção: ${acao}\n\nFunção executada com sucesso no ambiente escolar.`);
   const mockLockdown = () => {
