@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
 import { getAulaAtual, Aula, getDataEscolar } from '@/utils/horarios';
-import { gerarPDFAssinatura } from '@/utils/pdfGenerator';
 import { supabase } from '@/utils/supabase';
 
 export default function AlunoDashboard() {
@@ -19,19 +18,8 @@ export default function AlunoDashboard() {
   const [termoAceito, setTermoAceito] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  const showNotification = (title: string, body: string) => {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, { body, icon: '/favicon.ico' });
-    }
-  };
-
-  const verificarStatus = useCallback(async (protocolo: string) => {
+  // Função robusta de verificação manual (Fallback)
+  const verificarStatusManual = useCallback(async (protocolo: string) => {
     if (!supabase || !protocolo) return;
     try {
       const { data, error } = await supabase
@@ -40,12 +28,12 @@ export default function AlunoDashboard() {
         .eq('protocolo', protocolo)
         .maybeSingle();
       
-      if (error) throw error;
       if (data) {
+        console.log("Status atual no banco:", data.status);
         if (data.status !== statusAtual) setStatusAtual(data.status as any);
         if (data.assinatura_status !== assinaturaStatus) setAssinaturaStatus(data.assinatura_status as any);
       }
-    } catch (e) { console.error("Erro ao verificar status:", e); }
+    } catch (e) { console.error("Erro polling:", e); }
   }, [statusAtual, assinaturaStatus]);
 
   useEffect(() => {
@@ -61,17 +49,21 @@ export default function AlunoDashboard() {
       if (processado) return;
       let aula = getAulaAtual();
       if (!aula) {
-        try {
-          const res = await fetch('/api/adm/config');
-          const config = await res.json();
-          if (config.bypass) aula = { numero: 1, inicio: 'TESTE', fim: 'TESTE' };
-        } catch (e) {}
+        const res = await fetch('/api/adm/config');
+        const config = await res.json();
+        if (config.bypass) aula = { numero: 1, inicio: 'TESTE', fim: 'TESTE' };
       }
       setAulaAtual(aula);
       setQrValue(`${parsedUser.ra}-${Date.now()}`);
       if (aula) {
-        await registrarSolicitacao(parsedUser, aula);
-        setProcessado(true);
+        const protocolo = `PE-${Date.now()}`;
+        setProtocoloGerado(protocolo);
+        const response = await fetch('/api/entradas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ protocolo, aula_numero: aula.numero, horario: new Date().toLocaleTimeString('pt-BR'), data: getDataEscolar() })
+        });
+        if (response.ok) setProcessado(true);
       } else {
         setErrorEnvio("Sistema indisponível fora do horário escolar.");
       }
@@ -79,57 +71,50 @@ export default function AlunoDashboard() {
     prepararEntrada();
   }, [processado, router]);
 
+  // SINCRONIZAÇÃO DEFINITIVA
   useEffect(() => {
     if (!protocoloGerado || !supabase) return;
 
-    // Escuta QUALQUER mudança na tabela para o meu protocolo
+    console.log("Iniciando Realtime para:", protocoloGerado);
+
     const channel = supabase
-      .channel(`aluno-realtime-${protocoloGerado}`)
+      .channel(`canal-${protocoloGerado}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'entradas', 
-        filter: `protocolo=eq.${protocoloGerado}` 
-      }, (payload: any) => {
-        console.log("MUDANÇA RECEBIDA:", payload.new);
-        if (payload.new.status !== statusAtual) setStatusAtual(payload.new.status);
-        if (payload.new.assinatura_status !== assinaturaStatus) setAssinaturaStatus(payload.new.assinatura_status);
+        table: 'entradas',
+        filter: `protocolo=eq.${protocoloGerado}`
+      }, (payload) => {
+        console.log("REALTIME RECEBIDO!", payload.new);
+        const novoStatus = payload.new.status;
+        const novaAssinatura = payload.new.assinatura_status;
+        setStatusAtual(novoStatus);
+        setAssinaturaStatus(novaAssinatura);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Status da conexão realtime:", status);
+      });
 
-    const interval = setInterval(() => { verificarStatus(protocoloGerado); }, 2000);
+    // Polling agressivo de 1 segundo como garantia total
+    const interval = setInterval(() => verificarStatusManual(protocoloGerado), 1000);
+
     return () => { 
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [protocoloGerado, statusAtual, assinaturaStatus, verificarStatus]);
-
-  const registrarSolicitacao = async (u: any, aula: Aula) => {
-    const protocolo = `PE-${Date.now()}`;
-    setProtocoloGerado(protocolo);
-    try {
-      const response = await fetch('/api/entradas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ protocolo, aula_numero: aula.numero, horario: new Date().toLocaleTimeString('pt-BR'), data: getDataEscolar() })
-      });
-      if (!response.ok) throw new Error('Erro ao registrar');
-    } catch (e: any) { setErrorEnvio(`Falha: ${e.message}`); }
-  };
+  }, [protocoloGerado, verificarStatusManual]);
 
   const confirmarEntradaFinal = async (status: 'assinado' | 'recusado') => {
-    try {
-      const res = await fetch('/api/entradas/signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ protocolo: protocoloGerado, status })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setStatusAtual(data.status);
-        setAssinaturaStatus(status);
-      }
-    } catch (e) { console.error(e); }
+    const res = await fetch('/api/entradas/signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolo: protocoloGerado, status })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setStatusAtual(data.status);
+      setAssinaturaStatus(status);
+    }
   };
 
   if (!user) return <div className="flex h-screen items-center justify-center bg-background"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary"></div></div>;
@@ -148,11 +133,11 @@ export default function AlunoDashboard() {
 
         <section>
           {statusAtual === 'pendente' ? (
-            <div className="p-8 sm:p-12 bg-primary text-white rounded-[3rem] shadow-2xl border-4 border-white relative overflow-hidden">
+            <div className="p-8 sm:p-12 bg-primary text-white rounded-[3rem] shadow-2xl border-4 border-white relative overflow-hidden animate-pulse">
               <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">WAIT</div>
               <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter"><span className="mr-4 animate-spin-slow text-white">⏳</span> AGUARDANDO</h2>
               <p className="text-lg font-bold opacity-90 leading-relaxed max-xl relative z-10">
-                Olá {user.nome.split(' ')[0]}, sua solicitação para a <span className="bg-white/20 px-3 py-1 rounded-lg font-black">{aulaAtual?.numero || 1}ª aula</span> foi enviada. 
+                Olá {user.nome.split(' ')[0]}, sua solicitação foi enviada. 
                 <br /><br />
                 Sua entrada só será liberada quando <span className="underline decoration-2 underline-offset-4">Ivone ou Carlos</span> autorizarem no sistema.
               </p>
@@ -167,11 +152,13 @@ export default function AlunoDashboard() {
                   <p className="text-sm font-bold opacity-90 leading-relaxed">Carlos/Ivone já autorizaram sua entrada. Agora, dirija-se à coordenação para assinar o documento manual e confirme sua ciência abaixo:</p>
                   <div className="bg-emerald-900/20 p-6 rounded-2xl border border-white/10 cursor-pointer" onClick={() => setTermoAceito(!termoAceito)}>
                     <label className="flex items-start space-x-4 cursor-pointer">
-                      <input type="checkbox" checked={termoAceito} onChange={(e) => setTermoAceito(e.target.checked)} className="w-6 h-6 rounded-md" />
-                      <span className="text-xs font-bold leading-tight">Eu entendo que cheguei atrasado, assinei o documento manualmente na coordenação e aceito as políticas da escola.</span>
+                      <div className={`w-6 h-6 rounded-md border-2 border-white flex items-center justify-center transition-all ${termoAceito ? 'bg-white' : ''}`}>
+                        {termoAceito && <span className="text-emerald-600 font-black">✓</span>}
+                      </div>
+                      <span className="text-xs font-bold leading-tight flex-1">Eu entendo que cheguei atrasado, assinei o documento manualmente na coordenação e aceito as políticas da escola.</span>
                     </label>
                   </div>
-                  <button disabled={!termoAceito} onClick={() => confirmarEntradaFinal('assinado')} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600' : 'bg-white/10 text-white/40'}`}>Confirmar Entrada no Sistema</button>
+                  <button disabled={!termoAceito} onClick={() => confirmarEntradaFinal('assinado')} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all ${termoAceito ? 'bg-white text-emerald-600 hover:scale-[1.02]' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Confirmar Entrada no Sistema</button>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -192,7 +179,7 @@ export default function AlunoDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-card p-10 rounded-[3rem] shadow-sm border border-border flex flex-col items-center justify-center text-center">
             <h2 className="text-[10px] font-black text-secondary uppercase tracking-widest mb-8">Identidade Digital</h2>
-            <div className="p-6 bg-white rounded-[2.5rem] border-2 border-border"><QRCodeCanvas value={qrValue} size={180} fgColor="#0f172a" /></div>
+            <div className="p-6 bg-white rounded-[2.5rem] border-2 border-border shadow-inner"><QRCodeCanvas value={qrValue} size={180} fgColor="#0f172a" /></div>
             <p className="text-[10px] text-secondary mt-8 font-black uppercase flex items-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Live: Sincronizado</p>
           </div>
           <div className="bg-card p-10 rounded-[3rem] shadow-sm border border-border relative flex flex-col justify-center">
