@@ -11,11 +11,7 @@ export default function AlunoDashboard() {
   const [mounted, setMounted] = useState(false);
   const [statusAtual, setStatusAtual] = useState<'pendente' | 'autorizado' | 'liberado' | 'direcao'>('pendente');
   const [protocoloGerado, setProtocoloGerado] = useState('');
-  const [processado, setProcessado] = useState(false);
   const [termoAceito, setTermoAceito] = useState(false);
-  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
-  
-  // Cronômetro
   const [timeLeft, setTimeLeft] = useState(60);
   const [timerRunning, setTimerRunning] = useState(false);
 
@@ -24,7 +20,7 @@ export default function AlunoDashboard() {
 
   useEffect(() => { statusRef.current = statusAtual; }, [statusAtual]);
 
-  // 1. INICIALIZAÇÃO
+  // 1. INICIALIZAÇÃO E CONTROLE DE SESSÃO
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -35,7 +31,7 @@ export default function AlunoDashboard() {
     setMounted(true);
   }, [router]);
 
-  // 2. CRONÔMETRO DE LOGOUT
+  // 2. CRONÔMETRO REGRESSIVO (LOGOUT)
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (timerRunning && timeLeft > 0) {
@@ -49,41 +45,67 @@ export default function AlunoDashboard() {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('user');
-    sessionStorage.removeItem('auto_refresh_done');
+    sessionStorage.removeItem('ja_recarregou'); // Limpa para o próximo aluno
     router.replace('/login');
   };
 
-  // 3. POLLING INTELIGENTE (3 SEG)
-  const pollStatus = useCallback(async (protocolo: string) => {
-    if (!supabase || !protocolo) return;
+  /**
+   * 3. LÓGICA DE POLLING COM REFRESH ÚNICO (SOLICITADO)
+   */
+  const verificarStatusEAgir = useCallback(async (protocolo: string) => {
+    if (!supabase || !protocolo) return false;
+    
     try {
-      const { data } = await supabase.from('entradas').select('status').eq('protocolo', protocolo).maybeSingle();
-      if (data && data.status !== statusRef.current) {
-        setStatusAtual(data.status as any);
-        if (data.status === 'autorizado' || data.status === 'liberado') {
-          if (!sessionStorage.getItem('auto_refresh_done')) {
-            sessionStorage.setItem('auto_refresh_done', 'true');
-            window.location.reload();
-          }
-          return true;
+      const { data } = await supabase
+        .from('entradas')
+        .select('status')
+        .eq('protocolo', protocolo)
+        .maybeSingle();
+
+      const statusDoBanco = data?.status || 'pendente';
+
+      // Se no banco estiver LIBERADO ou AUTORIZADO
+      if (statusDoBanco === 'liberado' || statusDoBanco === 'autorizado') {
+        const jaRecarregou = sessionStorage.getItem('ja_recarregou');
+
+        if (jaRecarregou !== 'sim') {
+          console.log("Aprovação detectada! Executando refresh único...");
+          sessionStorage.setItem('ja_recarregou', 'sim');
+          window.location.reload();
+          return true; // Para o polling pois a página vai recarregar
+        } else {
+          // Se já recarregou, apenas atualiza o estado local para garantir o verde
+          if (statusAtual !== statusDoBanco) setStatusAtual(statusDoBanco as any);
+          return true; // Para o polling pois já estamos no estado final
         }
+      } 
+      
+      // Se no banco ainda estiver PENDENTE, garante que a chave de controle esteja limpa
+      if (statusDoBanco === 'pendente') {
+        sessionStorage.removeItem('ja_recarregou');
       }
-    } catch (e) {}
+
+    } catch (e) {
+      console.error("Erro no polling:", e);
+    }
     return false;
-  }, []);
+  }, [statusAtual]);
 
   useEffect(() => {
     if (!protocoloGerado || statusAtual === 'liberado') return;
-    const interval = setInterval(async () => {
-      const stop = await pollStatus(protocoloGerado);
-      if (stop) clearInterval(interval);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [protocoloGerado, statusAtual, pollStatus]);
 
-  // 4. REGISTRO INICIAL
+    const intervalId = setInterval(async () => {
+      const stopPolling = await verificarStatusEAgir(protocoloGerado);
+      if (stopPolling) clearInterval(intervalId);
+    }, 3000); // Polling a cada 3 segundos
+
+    return () => clearInterval(intervalId);
+  }, [protocoloGerado, statusAtual, verificarStatusEAgir]);
+
+  // 4. REGISTRO INICIAL DO PEDIDO
   useEffect(() => {
-    if (!mounted || !user || processado) return;
+    if (!mounted || !user) return;
+
     const registrar = async () => {
       let aula = getAulaAtual();
       if (!aula) {
@@ -91,24 +113,27 @@ export default function AlunoDashboard() {
         const config = await res.json();
         if (config.bypass) aula = { numero: 1, inicio: 'TESTE', fim: 'TESTE' };
       }
+
       if (aula) {
-        try {
-          const response = await fetch('/api/entradas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ protocolo: `PE-${Date.now()}`, aula_numero: aula.numero, horario: new Date().toLocaleTimeString('pt-BR'), data: getDataEscolar() })
-          });
-          const data = await response.json();
-          if (response.ok) {
-            setProtocoloGerado(data.protocolo);
-            setStatusAtual(data.status);
-            setProcessado(true);
-          }
-        } catch (e) {}
+        const response = await fetch('/api/entradas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            protocolo: `PE-${Date.now()}`, 
+            aula_numero: aula.numero, 
+            horario: new Date().toLocaleTimeString('pt-BR'), 
+            data: getDataEscolar() 
+          })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setProtocoloGerado(data.protocolo);
+          setStatusAtual(data.status);
+        }
       }
     };
     registrar();
-  }, [mounted, user, processado]);
+  }, [mounted, user]);
 
   const handleCheckbox = (val: boolean) => {
     setTermoAceito(val);
@@ -141,8 +166,8 @@ export default function AlunoDashboard() {
       <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
         <header className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] border border-slate-200 shadow-sm">
           <div className="flex items-center space-x-4">
-            <div className="bg-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"><span className="text-white font-black text-xl italic">N</span></div>
-            <h1 className="text-xl font-black italic tracking-tight">PortãoEdu</h1>
+            <div className="bg-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"><span className="text-white font-black text-xl italic text-white">N</span></div>
+            <h1 className="text-xl font-black italic tracking-tight text-slate-900">PortãoEdu</h1>
           </div>
           <button onClick={handleLogout} className="px-5 py-2 bg-red-50 text-red-600 rounded-xl font-black text-[10px] border border-red-100 uppercase">Sair</button>
         </header>
@@ -151,8 +176,8 @@ export default function AlunoDashboard() {
           {statusAtual === 'pendente' ? (
             <div className="p-8 sm:p-12 bg-blue-600 text-white rounded-[3rem] shadow-2xl border-4 border-white relative overflow-hidden animate-pulse">
               <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/10 pointer-events-none italic">WAIT</div>
-              <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter">
-                <span className="mr-4 text-4xl text-white">⏳</span> AGUARDANDO
+              <h2 className="text-3xl sm:text-4xl font-black uppercase mb-4 flex items-center tracking-tighter text-white">
+                <span className="mr-4 text-4xl text-white text-white">⏳</span> AGUARDANDO
               </h2>
               <p className="text-lg font-bold opacity-90 leading-relaxed max-w-2xl relative z-10 text-white">
                 Olá {user.nome.split(' ')[0]}, sua solicitação foi enviada. 
@@ -170,22 +195,22 @@ export default function AlunoDashboard() {
               {statusAtual === 'autorizado' ? (
                 <div className="bg-white/20 backdrop-blur-md p-6 sm:p-8 rounded-[2.5rem] border border-white/30 space-y-6">
                   <p className="text-sm font-bold opacity-95 leading-relaxed text-white">
-                    Olá <span className="font-black uppercase">{user.nome.split(' ')[0]}</span>, sua entrada foi autorizada. Você está <span className="font-black underline">LIBERADO</span>. Obrigado, Carlos.
+                    Olá <span className="font-black uppercase text-white">{user.nome.split(' ')[0]}</span>, sua entrada foi autorizada. Você está <span className="font-black underline text-white">LIBERADO</span>. Obrigado, Carlos.
                   </p>
                   <div className="bg-emerald-900/20 p-6 rounded-2xl border border-white/10 cursor-pointer" onClick={() => handleCheckbox(!termoAceito)}>
                     <label className="flex items-start space-x-4 cursor-pointer text-white">
                       <div className={`w-6 h-6 min-w-[24px] rounded-md border-2 border-white flex items-center justify-center transition-all ${termoAceito ? 'bg-white' : ''}`}>
                         {termoAceito && <span className="text-emerald-600 font-black text-xs">✓</span>}
                       </div>
-                      <span className="text-xs font-bold leading-tight flex-1">Eu afirmo que já assinei o documento manual na coordenação e aceito as políticas da escola.</span>
+                      <span className="text-xs font-bold leading-tight flex-1 text-white">Eu afirmo que já assinei o documento manual na coordenação e aceito as políticas da escola.</span>
                     </label>
                   </div>
                   <button disabled={!termoAceito} onClick={confirmarFinal} className={`w-full py-5 rounded-2xl font-black uppercase text-xs transition-all shadow-xl ${termoAceito ? 'bg-white text-emerald-600 hover:scale-[1.02]' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Confirmar Entrada</button>
                 </div>
               ) : (
                 <div className="space-y-4 text-center text-white">
-                  <p className="text-2xl font-black uppercase italic tracking-tighter">Acesso Confirmado!</p>
-                  <p className="text-sm font-bold opacity-90">Saindo em {timeLeft}s...</p>
+                  <p className="text-2xl font-black uppercase italic tracking-tighter text-white">Acesso Confirmado!</p>
+                  <p className="text-sm font-bold opacity-90 text-white">Saindo em {timeLeft}s...</p>
                 </div>
               )}
             </div>
@@ -197,27 +222,27 @@ export default function AlunoDashboard() {
           )}
         </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-foreground">
           <div className="bg-white p-10 rounded-[3rem] border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
             <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">Identidade Digital</h2>
             <div className="p-6 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-inner">
               <QRCodeCanvas value={protocoloGerado || 'loading'} size={180} fgColor="#0f172a" />
             </div>
-            <p className="text-[10px] text-emerald-500 mt-8 font-black uppercase flex items-center justify-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Sincronia Inteligente</p>
+            <p className="text-[10px] text-emerald-500 mt-8 font-black uppercase flex items-center justify-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Sistema Sincronizado</p>
           </div>
           <div className="bg-white p-10 rounded-[3rem] border border-slate-200 relative flex flex-col justify-center shadow-sm text-slate-900">
             <h2 className="text-2xl font-black mb-10 tracking-tight border-l-4 border-blue-600 pl-4 uppercase italic">Perfil</h2>
             <div className="space-y-6">
-              <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Nome</p><p className="text-lg font-black uppercase truncate">{user.nome}</p></div>
+              <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1 text-slate-400">Nome</p><p className="text-lg font-black uppercase truncate text-slate-900">{user.nome}</p></div>
               <div className="grid grid-cols-2 gap-6">
-                <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">RA</p><p className="text-lg font-black italic">{user.ra}</p></div>
-                <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Turma</p><p className="text-blue-600 text-lg font-black italic">{user.turma}</p></div>
+                <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1 text-slate-400">RA</p><p className="text-lg font-black italic text-slate-900">{user.ra}</p></div>
+                <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1 text-slate-400">Turma</p><p className="text-blue-600 text-lg font-black italic">{user.turma}</p></div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <footer className="max-w-4xl mx-auto mt-20 pb-10 text-center text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">PortãoEdu • 2026</footer>
+      <footer className="max-w-4xl mx-auto mt-20 pb-10 text-center text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">PortãoEdu • Nancy Management System • 2026</footer>
     </div>
   );
 }
