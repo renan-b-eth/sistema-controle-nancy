@@ -28,17 +28,15 @@ interface Aluno {
 
 export default function AdmDashboard() {
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'monitor' | 'alunos'>('monitor');
+  const [activeTab, setActiveTab] = useState<'entradas' | 'alunos'>('entradas');
   const [entradas, setEntradas] = useState<Entrada[]>([]);
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [filtroData, setFiltroData] = useState(getDataEscolar()); 
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
-  
-  // Estado para Cadastro de Aluno
-  const [novoAluno, setNovoAluno] = useState({ nome: '', ra: '', rg: '', turma: '' });
   const [mostraModal, setMostraModal] = useState(false);
-
+  const [novoAluno, setNovoAluno] = useState({ nome: '', ra: '', rg: '', turma: '' });
+  
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
 
@@ -50,9 +48,9 @@ export default function AdmDashboard() {
     try {
       const response = await fetch(`/api/adm/entradas?data=${dataParaFiltrar}`);
       if (!response.ok) throw new Error('Erro na API');
-      const novasEntradas = await response.json();
-      if (novasEntradas.some((e: any) => e.status === 'pendente')) playNotification();
-      setEntradas(novasEntradas);
+      const data = await response.json();
+      if (data.some((e: any) => e.status === 'pendente')) playNotification();
+      setEntradas(data);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
 
@@ -84,27 +82,26 @@ export default function AdmDashboard() {
     carregarEntradas(filtroData);
   };
 
-  const cadastrarAluno = async (e: React.FormEvent) => {
+  const handleCadastrar = async (e: React.FormEvent) => {
     e.preventDefault();
-    const response = await fetch('/api/adm/alunos', {
+    const res = await fetch('/api/adm/alunos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(novoAluno)
     });
-    if (response.ok) {
-      setNovoAluno({ nome: '', ra: '', rg: '', turma: '' });
+    if (res.ok) {
       setMostraModal(false);
+      setNovoAluno({ nome: '', ra: '', rg: '', turma: '' });
       carregarAlunos();
-      alert("Aluno cadastrado com sucesso!");
-    } else {
-      alert("Erro ao cadastrar. RA já existe?");
-    }
+      alert("Sucesso!");
+    } else { alert("Erro ao cadastrar."); }
   };
 
-  const deletarAluno = async (id: string) => {
-    if (!confirm("Deseja realmente excluir este aluno?")) return;
-    await fetch(`/api/adm/alunos?id=${id}`, { method: 'DELETE' });
-    carregarAlunos();
+  const handleDeletar = async (id: string) => {
+    if (confirm("Excluir aluno?")) {
+      await fetch(`/api/adm/alunos?id=${id}`, { method: 'DELETE' });
+      carregarAlunos();
+    }
   };
 
   const handleLogout = async () => {
@@ -113,93 +110,97 @@ export default function AdmDashboard() {
     router.push('/login');
   };
 
-  if (!user) return <div className="min-h-screen flex items-center justify-center font-black text-blue-600 animate-pulse">AUTENTICANDO...</div>;
+  if (!user) return <div className="p-10 text-center">Carregando...</div>;
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans">
+      <div className="max-w-6xl mx-auto">
         
-        {/* Header Superior */}
-        <header className="flex flex-col lg:flex-row justify-between items-center mb-8 gap-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-8 gap-4 border border-gray-200">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-200">N</div>
+            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-2xl">N</div>
             <div>
-              <h1 className="text-xl font-black tracking-tight uppercase">PortãoEdu <span className="text-blue-600">Gestão</span></h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">E.E. Nancy de Oliveira Fidalgo</p>
+              <h1 className="text-2xl font-black text-blue-900 tracking-tight">PortãoEdu <span className="text-gray-400 font-light">GESTÃO</span></h1>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">E.E. Nancy de Oliveira Fidalgo</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <button onClick={() => setMostraModal(true)} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100">+ Novo Aluno</button>
-            <button onClick={handleLogout} className="px-5 py-2.5 bg-slate-100 text-slate-500 rounded-xl text-xs font-black uppercase hover:bg-red-50 hover:text-red-600 transition-all">Sair</button>
+          <div className="flex space-x-2">
+            <button onClick={() => setMostraModal(true)} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition shadow-lg shadow-emerald-100">+ NOVO ALUNO</button>
+            <button onClick={handleLogout} className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition">SAIR</button>
           </div>
         </header>
 
-        {/* Tabs de Navegação */}
-        <div className="flex space-x-2 mb-8 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 max-w-md mx-auto lg:mx-0">
-          <button onClick={() => setActiveTab('monitor')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>Monitoramento</button>
-          <button onClick={() => setActiveTab('alunos')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'alunos' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>Gerenciar Alunos</button>
+        {/* Resumo */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className={`p-6 rounded-2xl shadow-sm border transition-all ${entradas.some(e => e.status === 'pendente') ? 'bg-orange-500 text-white animate-pulse' : 'bg-white border-gray-200 text-gray-500'}`}>
+            <p className="text-[10px] font-black uppercase mb-1">Aguardando</p>
+            <p className="text-3xl font-black">{entradas.filter(e => e.status === 'pendente').length}</p>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Total</p>
+            <p className="text-3xl font-black text-gray-800">{entradas.length}</p>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Liberados</p>
+            <p className="text-3xl font-black text-emerald-600">{entradas.filter(e => e.status === 'liberado').length}</p>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Direção</p>
+            <p className="text-3xl font-black text-red-500">{entradas.filter(e => e.status === 'direcao').length}</p>
+          </div>
         </div>
 
-        {/* Conteúdo Principal */}
-        <main className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px]">
-          
-          {/* ABA MONITORAMENTO */}
-          {activeTab === 'monitor' && (
-            <div className="p-6 md:p-10">
-              <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                <h2 className="text-2xl font-black text-slate-800">Fluxo de Portaria</h2>
-                <div className="flex items-center gap-2">
-                  <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
-                  <button onClick={() => gerarRelatorioGeral(entradas, filtroData)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all" title="Gerar Relatório Geral">📊</button>
-                </div>
-              </div>
+        {/* Abas */}
+        <div className="flex space-x-2 mb-6 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-200 max-w-md">
+          <button onClick={() => setActiveTab('entradas')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'entradas' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>Monitoramento</button>
+          <button onClick={() => setActiveTab('alunos')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'alunos' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>Alunos</button>
+        </div>
 
+        {/* Tabela/Lista */}
+        <main className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden mb-20">
+          {activeTab === 'entradas' ? (
+            <div className="p-6 md:p-8">
+              <div className="flex justify-between items-center mb-8 gap-4">
+                <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Pedidos de Entrada</h2>
+                <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 font-bold text-sm outline-none focus:border-blue-500" />
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <tr className="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                       <th className="pb-4 px-2">Aluno / RA</th>
                       <th className="pb-4 px-2">Horário / Aula</th>
-                      <th className="pb-4 px-2">Situação</th>
+                      <th className="pb-4 px-2">Status</th>
                       <th className="pb-4 px-2 text-center">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-gray-50">
                     {entradas.length === 0 ? (
-                      <tr><td colSpan={4} className="py-20 text-center text-slate-300 font-black uppercase tracking-widest italic">Nenhum registro encontrado</td></tr>
+                      <tr><td colSpan={4} className="py-20 text-center text-gray-300 font-bold uppercase italic tracking-widest">Vazio</td></tr>
                     ) : entradas.map(e => (
-                      <tr key={e.id} className={`hover:bg-slate-50/50 transition-all ${e.status === 'pendente' ? 'bg-orange-50/30' : ''}`}>
+                      <tr key={e.id} className="hover:bg-gray-50 transition-all">
                         <td className="py-5 px-2">
-                          <p className="font-black text-slate-800 text-sm uppercase leading-tight">{e.nome_aluno}</p>
-                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">RA: {e.ra_aluno} • {e.turma_aluno}</p>
+                          <p className="font-black text-gray-800 text-sm uppercase">{e.nome_aluno}</p>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">RA: {e.ra_aluno} • {e.turma_aluno}</p>
                         </td>
                         <td className="py-5 px-2">
-                          <p className="text-sm font-black text-slate-700">{e.horario}</p>
-                          <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{e.aula_numero}ª Aula</p>
+                          <p className="text-sm font-black text-gray-700">{e.horario}</p>
+                          <p className="text-[9px] font-black text-blue-600 uppercase">{e.aula_numero}ª Aula</p>
                         </td>
                         <td className="py-5 px-2">
                           <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                            e.status === 'liberado' ? 'bg-emerald-100 text-emerald-700' : 
-                            e.status === 'pendente' ? 'bg-orange-500 text-white animate-pulse' : 'bg-red-100 text-red-700'
+                            e.status === 'liberado' ? 'bg-green-100 text-green-700' : e.status === 'pendente' ? 'bg-blue-600 text-white' : 'bg-red-100 text-red-700'
                           }`}>{e.status}</span>
                         </td>
                         <td className="py-5 px-2 text-center">
                           {e.status === 'pendente' ? (
-                            <div className="flex justify-center gap-2">
-                              <button onClick={() => atualizarStatus(e.id, 'liberado')} className="w-10 h-10 bg-emerald-500 text-white rounded-xl shadow-md hover:scale-110 active:scale-95 transition-all">✅</button>
-                              <button onClick={() => atualizarStatus(e.id, 'direcao')} className="px-3 h-10 bg-red-500 text-white rounded-xl text-[9px] font-black uppercase shadow-md hover:scale-105 active:scale-95 transition-all">Direção</button>
+                            <div className="flex justify-center space-x-2">
+                              <button onClick={() => atualizarStatus(e.id, 'liberado')} className="w-10 h-10 bg-green-500 text-white rounded-xl shadow hover:scale-110 active:scale-95 transition-all flex items-center justify-center font-bold">✅</button>
+                              <button onClick={() => atualizarStatus(e.id, 'direcao')} className="px-3 h-10 bg-red-500 text-white rounded-xl text-[9px] font-black uppercase hover:scale-105 active:scale-95 transition-all">Direção</button>
                             </div>
                           ) : (
-                            <button onClick={() => gerarPDFAssinatura({ 
-                              nome: e.nome_aluno, 
-                              ra: e.ra_aluno, 
-                              rg: e.ra_aluno, // RG não é crítico aqui, usamos RA
-                              turma: e.turma_aluno, 
-                              data: e.data, 
-                              horario: e.horario, 
-                              aulaNumero: e.aula_numero,
-                              status: e.status 
-                            })} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-md shadow-slate-200">🖨️ PDF</button>
+                            <button onClick={() => gerarPDFAssinatura({ nome: e.nome_aluno, ra: e.ra_aluno, rg: e.ra_aluno, turma: e.turma_aluno, data: e.data, horario: e.horario, aulaNumero: e.aula_numero, status: e.status })} className="px-4 py-2 bg-gray-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 shadow-lg">🖨️ PDF</button>
                           )}
                         </td>
                       </tr>
@@ -208,30 +209,23 @@ export default function AdmDashboard() {
                 </table>
               </div>
             </div>
-          )}
-
-          {/* ABA GERENCIAR ALUNOS */}
-          {activeTab === 'alunos' && (
-            <div className="p-6 md:p-10 animate-in fade-in slide-in-from-bottom duration-500">
-              <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-                <h2 className="text-2xl font-black text-slate-800">Base de Alunos Nancy</h2>
-                <div className="relative w-full md:w-72">
-                  <input type="text" placeholder="Buscar aluno..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
-                  <span className="absolute right-4 top-3 opacity-30">🔍</span>
-                </div>
+          ) : (
+            <div className="p-6 md:p-8 animate-in fade-in duration-500">
+              <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Base de Alunos</h2>
+                <input type="text" placeholder="Buscar aluno..." value={busca} onChange={(e) => setBusca(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm font-bold w-full md:w-64 outline-none focus:border-blue-500" />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {alunos.filter(a => a.nome.toLowerCase().includes(busca.toLowerCase())).map(aluno => (
-                  <div key={aluno.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500 group">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-lg shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">🎓</div>
-                      <button onClick={() => deletarAluno(aluno.id)} className="text-xs opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all font-bold">Excluir</button>
+                  <div key={aluno.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-xl transition-all duration-300 group">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-xl">🎓</span>
+                      <button onClick={() => handleDeletar(aluno.id)} className="text-[10px] text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 font-bold uppercase transition-all">Excluir</button>
                     </div>
-                    <p className="font-black text-slate-800 uppercase text-xs leading-tight mb-4">{aluno.nome}</p>
-                    <div className="space-y-1.5 border-t border-slate-200/50 pt-4">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex justify-between">RA <span className="text-slate-600">{aluno.ra}</span></p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex justify-between">Turma <span className="text-blue-600">{aluno.turma}</span></p>
+                    <p className="font-black text-gray-800 text-xs uppercase leading-tight mb-3">{aluno.nome}</p>
+                    <div className="space-y-1 text-[10px] font-bold text-gray-400 uppercase">
+                      <p className="flex justify-between">RA <span>{aluno.ra}</span></p>
+                      <p className="flex justify-between">Turma <span className="text-blue-600">{aluno.turma}</span></p>
                     </div>
                   </div>
                 ))}
@@ -242,32 +236,20 @@ export default function AdmDashboard() {
 
         {/* Modal de Cadastro */}
         {mostraModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-in zoom-in duration-300">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-2xl font-black text-slate-800">Novo Aluno</h3>
-                <button onClick={() => setMostraModal(false)} className="text-slate-300 hover:text-slate-600 text-2xl font-black transition-all">×</button>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 animate-in zoom-in duration-300">
+              <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                <h3 className="text-2xl font-black text-gray-800 uppercase italic">Novo Aluno</h3>
+                <button onClick={() => setMostraModal(false)} className="text-gray-300 hover:text-gray-600 text-3xl font-black">×</button>
               </div>
-              <form onSubmit={cadastrarAluno} className="space-y-5">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome Completo</label>
-                  <input required value={novoAluno.nome} onChange={e => setNovoAluno({...novoAluno, nome: e.target.value})} type="text" placeholder="Ex: JOÃO SILVA" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
+              <form onSubmit={handleCadastrar} className="space-y-5">
+                <input required value={novoAluno.nome} onChange={e => setNovoAluno({...novoAluno, nome: e.target.value})} type="text" placeholder="Nome Completo" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-sm font-bold" />
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">RA</label>
-                    <input required value={novoAluno.ra} onChange={e => setNovoAluno({...novoAluno, ra: e.target.value})} type="text" placeholder="Só números" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">RG</label>
-                    <input required value={novoAluno.rg} onChange={e => setNovoAluno({...novoAluno, rg: e.target.value})} type="text" placeholder="Só números" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                  </div>
+                  <input required value={novoAluno.ra} onChange={e => setNovoAluno({...novoAluno, ra: e.target.value})} type="text" placeholder="RA (Só números)" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-sm font-bold" />
+                  <input required value={novoAluno.rg} onChange={e => setNovoAluno({...novoAluno, rg: e.target.value})} type="text" placeholder="RG (Só números)" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-sm font-bold" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Turma</label>
-                  <input required value={novoAluno.turma} onChange={e => setNovoAluno({...novoAluno, turma: e.target.value})} type="text" placeholder="Ex: 3ª E" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-                <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-100 transition-all active:scale-95 mt-4">Salvar Cadastro</button>
+                <input required value={novoAluno.turma} onChange={e => setNovoAluno({...novoAluno, turma: e.target.value})} type="text" placeholder="Turma (Ex: 3ª E)" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-sm font-bold" />
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">SALVAR CADASTRO</button>
               </form>
             </div>
           </div>
