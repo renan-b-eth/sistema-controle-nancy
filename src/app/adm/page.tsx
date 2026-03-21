@@ -190,7 +190,16 @@ export default function AdmDashboard() {
                               <button onClick={() => atualizarStatus(e.id, 'direcao')} className="px-3 h-10 bg-red-500 text-white rounded-xl text-[9px] font-black uppercase shadow-md hover:scale-105 active:scale-95 transition-all">Direção</button>
                             </div>
                           ) : (
-                            <button onClick={() => gerarPDFAssinatura({ ...e, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno, aulaNumero: e.aula_numero })} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-md shadow-slate-200">🖨️ PDF</button>
+                            <button onClick={() => gerarPDFAssinatura({ 
+                              nome: e.nome_aluno, 
+                              ra: e.ra_aluno, 
+                              rg: e.ra_aluno, // RG não é crítico aqui, usamos RA
+                              turma: e.turma_aluno, 
+                              data: e.data, 
+                              horario: e.horario, 
+                              aulaNumero: e.aula_numero,
+                              status: e.status 
+                            })} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-md shadow-slate-200">🖨️ PDF</button>
                           )}
                         </td>
                       </tr>
