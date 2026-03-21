@@ -225,7 +225,7 @@ export default function AdmDashboard() {
                               <button onClick={() => atualizarStatus(e.id, 'direcao')} className="px-4 py-3 bg-red-500 text-white rounded-xl text-[9px] font-black uppercase hover:scale-105 transition-all shadow-lg shadow-red-200">Direção</button>
                             </div>
                           ) : (
-                            <button onClick={() => gerarPDFAssinatura({ nome: e.nome_aluno, ra: e.ra_aluno, rg: e.ra_aluno, turma: e.turma_aluno, data: e.data, horario: e.horario, aulaNumero: e.aula_numero, status: e.status })} className="px-5 py-2.5 bg-foreground text-background rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all">🖨️ PDF</button>
+                            <button onClick={() => gerarPDFAssinatura({ nome: e.nome_aluno, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno, data: e.data, horario: e.horario, aulaNumero: e.aula_numero, status: e.status })} className="px-5 py-2.5 bg-foreground text-background rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all">🖨️ PDF</button>
                           )}
                         </td>
                       </tr>
@@ -260,7 +260,16 @@ export default function AdmDashboard() {
                           <button onClick={() => atualizarStatus(e.id, 'direcao')} className="py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase">Direção</button>
                         </div>
                       ) : (
-                        <button onClick={() => gerarPDFAssinatura({ ...e })} className="w-full py-3 bg-foreground text-background rounded-xl font-black text-[10px] uppercase tracking-widest">Gerar Comprovante PDF</button>
+                        <button onClick={() => gerarPDFAssinatura({ 
+                          nome: e.nome_aluno, 
+                          ra: e.ra_aluno, 
+                          rg: e.rg_aluno, 
+                          turma: e.turma_aluno, 
+                          data: e.data, 
+                          horario: e.horario, 
+                          aulaNumero: e.aula_numero, 
+                          status: e.status 
+                        })} className="w-full py-3 bg-foreground text-background rounded-xl font-black text-[10px] uppercase tracking-widest">Gerar Comprovante PDF</button>
                       )}
                     </div>
                   </div>
