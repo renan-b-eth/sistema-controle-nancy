@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import studentsData from '@/data/students.json';
 import { gerarPDFAssinatura, gerarRelatorioGeral } from '@/utils/pdfGenerator';
 import { supabase } from '@/utils/supabase';
+import { getDataEscolar } from '@/utils/horarios';
 
 interface Entrada {
   id: string;
@@ -23,11 +24,12 @@ export default function AdmDashboard() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'entradas' | 'alunos'>('entradas');
   const [entradas, setEntradas] = useState<Entrada[]>([]);
-  const [filtroData, setFiltroData] = useState(new Date().toLocaleDateString('en-CA')); 
+  const [filtroData, setFiltroData] = useState(getDataEscolar()); 
   const [loading, setLoading] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
 
+  // Função para tocar o som de alerta
   const playNotification = () => {
     if (audioRef.current) {
       audioRef.current.play().catch(e => console.log("Erro ao tocar som:", e));
@@ -35,56 +37,47 @@ export default function AdmDashboard() {
   };
 
   const carregarEntradas = useCallback(async (dataParaFiltrar: string) => {
-    if (!supabase) return;
     try {
-      const { data, error } = await supabase
-        .from('entradas')
-        .select('*')
-        .eq('data', dataParaFiltrar)
-        .order('horario', { ascending: false });
-
-      if (error) throw error;
+      // BUSCA VIA API BACKEND (Garante que os dados apareçam sem bloqueio de RLS)
+      const response = await fetch(`/api/adm/entradas?data=${dataParaFiltrar}`);
+      if (!response.ok) throw new Error('Erro na API');
       
-      const novasEntradas = (data || []) as Entrada[];
+      const novasEntradas = (await response.json()) as Entrada[];
       
-      const pendentesAtuais = entradas.filter((e: Entrada) => e.status === 'pendente').length;
-      const novosPendentes = novasEntradas.filter((e: Entrada) => e.status === 'pendente').length;
-      
-      if (novosPendentes > pendentesAtuais) {
+      // ALERTA SONORO: Se houver alguém pendente, toca o som
+      if (novasEntradas.some(e => e.status === 'pendente')) {
         playNotification();
       }
 
       setEntradas(novasEntradas);
     } catch (e) {
-      console.error("Erro ao carregar do Supabase:", e);
+      console.error("Erro ao carregar:", e);
     } finally {
       setLoading(false);
     }
-  }, [entradas]);
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) setUser(JSON.parse(storedUser));
     
+    // Som de Alerta insistentemente
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     
     carregarEntradas(filtroData);
 
+    // 1. Inscrição em Tempo Real (Supabase)
     const channel = supabase ? supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'entradas' 
-      }, (payload: any) => {
-         console.log('Mudança detectada:', payload);
+      .channel('db-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entradas' }, () => {
          carregarEntradas(filtroData);
       })
       .subscribe() : null;
 
+    // 2. Polling Ultrarápido (3 segundos) - Garante que o pedido apareça mesmo se o Realtime falhar
     const interval = setInterval(() => {
       carregarEntradas(filtroData);
-    }, 5000);
+    }, 3000);
 
     return () => { 
       if (channel) supabase.removeChannel(channel); 
@@ -104,138 +97,98 @@ export default function AdmDashboard() {
     router.push('/login');
   };
 
-  if (!user) return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600"></div>
-    </div>
-  );
+  if (!user) return <div className="p-20 text-center animate-pulse font-black text-blue-600">CARREGANDO GESTÃO...</div>;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans p-4 md:p-10">
       <div className="max-w-7xl mx-auto">
+        
+        {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
           <div className="flex items-center space-x-5">
-            <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-100">
+            <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl">
               <span className="text-white text-2xl font-black">N</span>
             </div>
             <div>
-              <h1 className="text-3xl font-black tracking-tighter text-slate-800">Painel <span className="text-blue-600">Gestão</span></h1>
+              <h1 className="text-3xl font-black tracking-tighter text-slate-800 uppercase">PortãoEdu <span className="text-blue-600">Gestão</span></h1>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Carlos, Ivone & Irina</p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-3 w-full md:w-auto">
-            <button onClick={() => gerarRelatorioGeral(entradas, filtroData)} className="flex-1 md:flex-none px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">📊 Relatório PDF</button>
-            <button onClick={handleLogout} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">Sair</button>
+          <div className="flex items-center space-x-3">
+            <button onClick={() => gerarRelatorioGeral(entradas, filtroData)} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 shadow-sm">Relatório PDF</button>
+            <button onClick={handleLogout} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100">Sair</button>
           </div>
         </header>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Hoje</p>
-            <p className="text-3xl font-black text-slate-800">{entradas.length}</p>
+        {/* Status de Pedidos */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
+          <div className={`p-8 rounded-[2.5rem] shadow-xl transition-all duration-500 flex flex-col justify-center ${entradas.some(e => e.status === 'pendente') ? 'bg-orange-500 animate-pulse text-white scale-105' : 'bg-white border border-slate-100 text-slate-400'}`}>
+            <p className="text-[10px] font-black uppercase tracking-widest mb-2">Pedidos Pendentes</p>
+            <p className="text-5xl font-black leading-none">{entradas.filter(e => e.status === 'pendente').length}</p>
+            {entradas.some(e => e.status === 'pendente') && <p className="text-[10px] font-bold mt-2 uppercase animate-bounce">Aguardando Ação!</p>}
           </div>
-          <div className={`p-6 rounded-[2rem] shadow-xl transition-all ${entradas.some(e => e.status === 'pendente') ? 'bg-orange-500 animate-pulse text-white' : 'bg-white border border-slate-100'}`}>
-            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${entradas.some(e => e.status === 'pendente') ? 'text-orange-100' : 'text-slate-400'}`}>Pendentes</p>
-            <p className="text-3xl font-black">{entradas.filter(e => e.status === 'pendente').length}</p>
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total de Registros</p>
+            <p className="text-4xl font-black text-slate-800">{entradas.length}</p>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Liberados</p>
-            <p className="text-3xl font-black text-emerald-600">{entradas.filter(e => e.status === 'liberado').length}</p>
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Liberados</p>
+            <p className="text-4xl font-black text-emerald-600">{entradas.filter(e => e.status === 'liberado').length}</p>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Restritos</p>
-            <p className="text-3xl font-black text-red-500">{entradas.filter(e => e.status === 'direcao').length}</p>
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Restritos</p>
+            <p className="text-4xl font-black text-red-500">{entradas.filter(e => e.status === 'direcao').length}</p>
           </div>
         </div>
 
-        <div className="flex space-x-2 mb-8 bg-slate-100/50 p-2 rounded-[2rem] border border-slate-200/50 max-w-md">
-          <button onClick={() => setActiveTab('entradas')} className={`flex-1 py-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'entradas' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:bg-white/50'}`}>Acessos</button>
-          <button onClick={() => setActiveTab('alunos')} className={`flex-1 py-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'alunos' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:bg-white/50'}`}>Alunos</button>
-        </div>
+        {/* Lista de Acessos */}
+        <main className="bg-white rounded-[3rem] shadow-[0_20px_60px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden">
+          <div className="p-8 md:p-12">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Monitoramento de Portaria</h2>
+              <input type="date" value={filtroData} onChange={(e) => { setFiltroData(e.target.value); carregarEntradas(e.target.value); }} className="bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-3 font-black text-sm outline-none focus:border-blue-500" />
+            </div>
 
-        <main className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
-          {activeTab === 'entradas' && (
-            <div className="p-8 md:p-12">
-              <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Registro de Movimentação</h2>
-                <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} className="bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-3 font-bold text-sm outline-none focus:border-blue-500 transition-all" />
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-separate border-spacing-y-4">
-                  <thead>
-                    <tr className="text-slate-400 uppercase text-[10px] font-black tracking-[0.2em]">
-                      <th className="px-6 py-2">Aluno / Dados</th>
-                      <th className="px-6 py-2">Horário / Aula</th>
-                      <th className="px-6 py-2">Status</th>
-                      <th className="px-6 py-2 text-center">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                       <tr><td colSpan={4} className="text-center py-20 text-slate-300 font-bold">Carregando...</td></tr>
-                    ) : entradas.length === 0 ? (
-                       <tr><td colSpan={4} className="text-center py-20 text-slate-300 font-bold italic">Vazio.</td></tr>
-                    ) : entradas.map(e => (
-                      <tr key={e.id} className={`group bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-50 rounded-3xl overflow-hidden ${e.status === 'pendente' ? 'ring-2 ring-orange-400 bg-orange-50/20' : ''}`}>
-                        <td className="px-6 py-6 rounded-l-3xl">
-                          <p className="font-black text-slate-800 uppercase text-sm tracking-tight">{e.nome_aluno}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">RA: {e.ra_aluno} • {e.turma_aluno}</p>
-                        </td>
-                        <td className="px-6 py-6">
-                          <p className="font-black text-slate-700 text-lg">{e.horario}</p>
-                          <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">{e.aula_numero}ª AULA</p>
-                        </td>
-                        <td className="px-6 py-6">
-                          <span className={`inline-flex px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                            e.status === 'liberado' ? 'bg-emerald-100 text-emerald-700' : 
-                            e.status === 'pendente' ? 'bg-orange-500 text-white animate-bounce shadow-lg shadow-orange-200' :
-                            e.status === 'bloqueado' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                          }`}>{e.status}</span>
-                        </td>
-                        <td className="px-6 py-6 text-center rounded-r-3xl">
-                          <div className="flex justify-center items-center space-x-2">
-                            {e.status === 'pendente' ? (
-                              <>
-                                <button onClick={() => atualizarStatus(e.id, 'liberado')} className="h-12 w-12 bg-emerald-500 text-white rounded-2xl hover:bg-emerald-600 shadow-lg shadow-emerald-100 flex items-center justify-center transition-all active:scale-90">✅</button>
-                                <button onClick={() => atualizarStatus(e.id, 'direcao')} className="h-12 px-4 bg-red-500 text-white rounded-2xl hover:bg-red-600 shadow-lg shadow-red-100 flex items-center justify-center transition-all active:scale-90 font-black text-[10px] uppercase">Direção</button>
-                              </>
-                            ) : (
-                              <button onClick={() => gerarPDFAssinatura({ nome: e.nome_aluno, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno, data: e.data, horario: e.horario, aulaNumero: e.aula_numero })} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase hover:bg-slate-200 transition-all">Imprimir</button>
-                            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-separate border-spacing-y-4">
+                <thead>
+                  <tr className="text-slate-400 uppercase text-[10px] font-black tracking-[0.2em]">
+                    <th className="px-6 py-2">Aluno</th>
+                    <th className="px-6 py-2">Horário</th>
+                    <th className="px-6 py-2">Status</th>
+                    <th className="px-6 py-2 text-center">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entradas.length === 0 ? (
+                    <tr><td colSpan={4} className="text-center py-20 text-slate-300 font-bold italic uppercase tracking-widest">Nenhum pedido encontrado.</td></tr>
+                  ) : entradas.map(e => (
+                    <tr key={e.id} className={`group bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-50 rounded-3xl ${e.status === 'pendente' ? 'ring-4 ring-orange-100 bg-orange-50/10' : ''}`}>
+                      <td className="px-6 py-6 rounded-l-3xl">
+                        <p className="font-black text-slate-800 uppercase text-sm">{e.nome_aluno}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">RA: {e.ra_aluno} • {e.turma_aluno}</p>
+                      </td>
+                      <td className="px-6 py-6 text-lg font-black text-slate-700">{e.horario}</td>
+                      <td className="px-6 py-6 uppercase font-black text-[10px] tracking-widest">
+                        <span className={`px-4 py-2 rounded-xl ${e.status === 'liberado' ? 'bg-emerald-100 text-emerald-700' : e.status === 'pendente' ? 'bg-orange-500 text-white animate-bounce' : 'bg-red-100 text-red-700'}`}>{e.status}</span>
+                      </td>
+                      <td className="px-6 py-6 text-center rounded-r-3xl">
+                        {e.status === 'pendente' ? (
+                          <div className="flex justify-center space-x-2">
+                            <button onClick={() => atualizarStatus(e.id, 'liberado')} className="h-12 w-12 bg-emerald-500 text-white rounded-2xl shadow-lg hover:scale-110 active:scale-90 transition-all flex items-center justify-center">✅</button>
+                            <button onClick={() => atualizarStatus(e.id, 'direcao')} className="h-12 px-4 bg-red-500 text-white rounded-2xl shadow-lg font-black text-[10px] uppercase hover:scale-105 active:scale-90 transition-all">Direção</button>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        ) : (
+                          <button onClick={() => gerarPDFAssinatura({ nome: e.nome_aluno, ra: e.ra_aluno, rg: e.rg_aluno, turma: e.turma_aluno, data: e.data, horario: e.horario, aulaNumero: e.aula_numero })} className="px-4 py-2 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md">Imprimir PDF</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {activeTab === 'alunos' && (
-            <div className="p-8 md:p-12">
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-8">Base de Alunos</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {studentsData.map(aluno => (
-                  <div key={aluno.ra} className="p-8 bg-slate-50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl transition-all duration-300">
-                    <p className="font-black text-slate-800 uppercase text-sm mb-4 leading-tight">{aluno.nome}</p>
-                    <div className="space-y-2">
-                      <div className="flex justify-between border-b border-slate-200/50 pb-2">
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">RA</span>
-                         <span className="text-xs font-bold text-slate-600">{aluno.ra.replace(/[-\s]/g, '')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Turma</span>
-                         <span className="text-xs font-bold text-blue-600">{aluno.turma}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </main>
       </div>
     </div>

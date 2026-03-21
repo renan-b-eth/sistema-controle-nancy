@@ -1,44 +1,36 @@
 export interface Aula {
   numero: number;
-  inicio: string; // HH:mm
-  fim: string;    // HH:mm
+  inicio: string;
+  fim: string;
 }
 
-export const GRADE_MANHA: Aula[] = [
-  { numero: 1, inicio: "07:00", fim: "07:45" },
-  { numero: 2, inicio: "07:45", fim: "08:30" },
-  { numero: 3, inicio: "08:30", fim: "09:15" },
-  { numero: 4, inicio: "09:15", fim: "10:00" },
-  { numero: 5, inicio: "10:00", fim: "10:45" },
-];
+// Retorna a data atual no formato YYYY-MM-DD (Fuso de São Paulo)
+export const getDataEscolar = () => {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+};
 
-export const GRADE_NOTURNO: Aula[] = [
-  { numero: 1, inicio: "19:00", fim: "19:45" },
-  { numero: 2, inicio: "19:45", fim: "20:30" },
-  { numero: 3, inicio: "20:30", fim: "21:15" },
-  { numero: 4, inicio: "21:15", fim: "22:00" },
-  { numero: 5, inicio: "22:00", fim: "22:45" },
-];
+// Retorna o horário atual no formato HH:MM:SS (Fuso de São Paulo)
+export const getHorarioEscolar = () => {
+  return new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+};
 
-export function getAulaAtual(data: Date = new Date()): Aula | null {
-  const horas = data.getHours();
-  const minutos = data.getMinutes();
-  const tempoAtual = horas * 60 + minutos;
+export const getAulaAtual = (): Aula | null => {
+  const agora = new Date();
+  const horaBrasilia = new Date(agora.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+  const horas = horaBrasilia.getHours();
+  const minutos = horaBrasilia.getMinutes();
+  const totalMinutos = horas * 60 + minutos;
 
-  // Decide qual grade usar com base na hora (antes das 13h é manhã, depois é noite)
-  const grade = horas < 13 ? GRADE_MANHA : GRADE_NOTURNO;
-
-  for (const aula of grade) {
-    const [hInicio, mInicio] = aula.inicio.split(":").map(Number);
-    const [hFim, mFim] = aula.fim.split(":").map(Number);
-    
-    const tempoInicio = hInicio * 60 + mInicio;
-    const tempoFim = hFim * 60 + mFim;
-
-    if (tempoAtual >= tempoInicio && tempoAtual < tempoFim) {
-      return aula;
-    }
-  }
+  // 1ª Aula: 19:00 - 19:45 (1140 - 1185)
+  if (totalMinutos >= 1140 && totalMinutos < 1185) return { numero: 1, inicio: '19:00', fim: '19:45' };
+  
+  // 2ª Aula: 19:45 - 20:30 (1185 - 1230)
+  if (totalMinutos >= 1185 && totalMinutos < 1230) return { numero: 2, inicio: '19:45', fim: '20:30' };
+  
+  // 3ª Aula em diante
+  if (totalMinutos >= 1230 && totalMinutos < 1275) return { numero: 3, inicio: '20:30', fim: '21:15' };
+  if (totalMinutos >= 1275 && totalMinutos < 1320) return { numero: 4, inicio: '21:15', fim: '22:00' };
+  if (totalMinutos >= 1320 && totalMinutos <= 1365) return { numero: 5, inicio: '22:00', fim: '22:45' };
 
   return null;
-}
+};
