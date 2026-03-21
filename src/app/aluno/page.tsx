@@ -14,6 +14,7 @@ export default function AlunoDashboard() {
   const [statusAtual, setStatusAtual] = useState<'pendente' | 'liberado' | 'bloqueado' | 'direcao'>('pendente');
   const [protocoloGerado, setProtocoloGerado] = useState('');
   const [processado, setProcessado] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function AlunoDashboard() {
   }, [processado]);
 
   useEffect(() => {
-    if (!protocoloGerado) return;
+    if (!protocoloGerado || !supabase) return;
 
     const channel = supabase
       .channel(`status-${protocoloGerado}`)
@@ -73,12 +74,17 @@ export default function AlunoDashboard() {
   }, [protocoloGerado, user]);
 
   const registrarSolicitacao = async (u: any, aula: Aula) => {
+    if (!supabase) {
+      setErrorEnvio("Sistema de banco de dados offline. Comunique à portaria.");
+      return;
+    }
+
     const horarioAtual = new Date().toLocaleTimeString('pt-BR');
     const protocolo = `PE-${Date.now()}`;
     setProtocoloGerado(protocolo);
 
     try {
-      await supabase.from('entradas').insert({
+      const { error } = await supabase.from('entradas').insert({
         data: new Date().toISOString().split('T')[0],
         horario: horarioAtual,
         aula_numero: aula.numero,
@@ -89,8 +95,11 @@ export default function AlunoDashboard() {
         rg_aluno: u.rg,
         turma_aluno: u.turma
       });
-    } catch (e) {
+
+      if (error) throw error;
+    } catch (e: any) {
       console.error("Erro ao registrar entrada:", e);
+      setErrorEnvio(`Falha na conexão com o banco: ${e.message}`);
     }
   };
 
@@ -125,6 +134,14 @@ export default function AlunoDashboard() {
             Sair
           </button>
         </header>
+
+        {/* Alerta de Erro de Envio */}
+        {errorEnvio && (
+          <div className="mb-6 p-6 bg-red-600 text-white rounded-3xl shadow-xl shadow-red-200 border-2 border-white animate-bounce">
+            <h3 className="font-black uppercase text-sm mb-1 tracking-widest">⚠️ ERRO DE CONEXÃO</h3>
+            <p className="font-bold text-sm opacity-90">{errorEnvio}</p>
+          </div>
+        )}
 
         {/* Status Gigante */}
         <section className="mb-10">

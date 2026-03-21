@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import studentsData from '@/data/students.json';
 import { gerarPDFAssinatura, gerarRelatorioGeral } from '@/utils/pdfGenerator';
@@ -27,7 +27,8 @@ export default function AdmDashboard() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const carregarEntradas = async (dataParaFiltrar: string) => {
+  const carregarEntradas = useCallback(async (dataParaFiltrar: string) => {
+    if (!supabase) return;
     try {
       const { data, error } = await supabase
         .from('entradas')
@@ -42,7 +43,7 @@ export default function AdmDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -50,18 +51,29 @@ export default function AdmDashboard() {
     
     carregarEntradas(filtroData);
 
-    const channel = supabase
+    // 1. Realtime Subscription (Se habilitado no Supabase)
+    const channel = supabase ? supabase
       .channel('novas-entradas-adm')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'entradas' }, () => {
          carregarEntradas(filtroData);
       })
-      .subscribe();
+      .subscribe() : null;
 
-    return () => { supabase.removeChannel(channel); };
-  }, [filtroData]);
+    // 2. Polling (Fallback - busca a cada 10s caso o realtime falhe)
+    const interval = setInterval(() => {
+      carregarEntradas(filtroData);
+    }, 10000);
+
+    return () => { 
+      if (channel) supabase.removeChannel(channel); 
+      clearInterval(interval);
+    };
+  }, [filtroData, carregarEntradas]);
 
   const atualizarStatus = async (id: string, novoStatus: string) => {
+    if (!supabase) return;
     await supabase.from('entradas').update({ status: novoStatus }).eq('id', id);
+    carregarEntradas(filtroData);
   };
 
   const handleLogout = async () => {
