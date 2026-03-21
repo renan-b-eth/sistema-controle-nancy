@@ -11,12 +11,16 @@ export async function POST(request: Request) {
     
     if (!session) return NextResponse.json({ error: 'Sessão expirada.' }, { status: 401 });
 
+    // Quando o aluno assina, o status global da entrada passa a ser LIBERADO (Finalizado)
     const atualizado = await prisma.entrada.update({
       where: { protocolo },
-      data: { assinatura_status: status }
+      data: { 
+        assinatura_status: status,
+        status: status === 'assinado' ? 'liberado' : 'direcao' // Se recusar, volta pra direção
+      }
     });
 
-    return NextResponse.json({ success: true, assinatura_status: atualizado.assinatura_status });
+    return NextResponse.json({ success: true, status: atualizado.status });
 
   } catch (error: any) {
     console.error('ERRO AO ATUALIZAR ASSINATURA:', error);

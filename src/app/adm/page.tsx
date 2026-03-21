@@ -11,7 +11,7 @@ interface Entrada {
   data: string;
   horario: string;
   aula_numero: number;
-  status: 'pendente' | 'liberado' | 'bloqueado' | 'direcao';
+  status: 'pendente' | 'autorizado' | 'liberado' | 'bloqueado' | 'direcao';
   nome_aluno: string;
   ra_aluno: string;
   rg_aluno: string;
@@ -109,8 +109,11 @@ export default function AdmDashboard() {
 
     if (supabase) {
       const channel = supabase
-        .channel('adm-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'entradas' }, () => carregarEntradas(filtroData))
+        .channel('adm-realtime-global')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'entradas' }, (payload) => {
+          console.log("Realtime ADM Update:", payload);
+          carregarEntradas(filtroData);
+        })
         .subscribe();
       return () => { supabase.removeChannel(channel); };
     }
@@ -151,7 +154,7 @@ export default function AdmDashboard() {
     router.push('/login');
   };
 
-  if (!user) return <div className="flex h-screen items-center justify-center bg-background"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary"></div></div>;
+  if (!user) return <div className="flex h-screen items-center justify-center bg-background text-foreground"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary"></div></div>;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-10 font-sans">
@@ -194,24 +197,24 @@ export default function AdmDashboard() {
         {/* Resumo Dinâmico (Dashboard) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm group hover:border-primary/50 transition-all">
-            <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-4">Pedidos Ativos</p>
+            <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-4">Aguardando Gestão</p>
             <div className="flex items-end justify-between">
               <p className="text-5xl font-black italic text-primary">{entradas.filter(e => e.status === 'pendente').length}</p>
               <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">⏳</div>
             </div>
           </div>
-          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm group hover:border-emerald-500/50 transition-all">
-            <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-4">Assinaturas Hoje</p>
+          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm group hover:border-amber-500/50 transition-all">
+            <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-4">Aguardando Aluno</p>
             <div className="flex items-end justify-between">
-              <p className="text-5xl font-black italic text-emerald-500">{entradas.filter(e => e.assinatura_status === 'assinado').length}</p>
-              <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500">✍️</div>
+              <p className="text-5xl font-black italic text-amber-500">{entradas.filter(e => e.status === 'autorizado').length}</p>
+              <div className="w-10 h-10 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500">✍️</div>
             </div>
           </div>
-          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm group hover:border-red-500/50 transition-all">
-            <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-4">Encaminhados</p>
+          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm group hover:border-emerald-500/50 transition-all">
+            <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-4">Entradas Finais</p>
             <div className="flex items-end justify-between">
-              <p className="text-5xl font-black italic text-red-500">{entradas.filter(e => e.status === 'direcao').length}</p>
-              <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center text-red-500">🚨</div>
+              <p className="text-5xl font-black italic text-emerald-500">{entradas.filter(e => e.status === 'liberado').length}</p>
+              <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500">✅</div>
             </div>
           </div>
           <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm group hover:border-indigo-500/50 transition-all">
@@ -245,9 +248,9 @@ export default function AdmDashboard() {
 
           <main className="flex-1 bg-card rounded-[2.5rem] shadow-sm border border-border overflow-hidden min-h-[600px]">
             {activeTab === 'entradas' && (
-              <div className="p-6 sm:p-10 animate-fade-in">
+              <div className="p-6 sm:p-10 animate-fade-in text-foreground">
                 <div className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
-                  <h2 className="text-2xl font-black uppercase italic border-l-4 border-primary pl-4">Pedidos On-line</h2>
+                  <h2 className="text-2xl font-black uppercase italic border-l-4 border-primary pl-4">Fluxo de Portaria</h2>
                   <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} className="bg-background border border-border rounded-xl px-4 py-3 font-bold text-xs outline-none focus:border-primary text-foreground" />
                 </div>
                 <div className="overflow-x-auto">
@@ -255,9 +258,9 @@ export default function AdmDashboard() {
                     <thead>
                       <tr className="border-b border-border text-[10px] font-black text-secondary uppercase tracking-widest">
                         <th className="pb-6 px-4">Aluno / Turma</th>
-                        <th className="pb-6 px-4">Horário / Aula</th>
-                        <th className="pb-6 px-4">Responsável</th>
-                        <th className="pb-6 px-4">Confirmação</th>
+                        <th className="pb-6 px-4 text-center">Status Global</th>
+                        <th className="pb-6 px-4">Gestor / Responsável</th>
+                        <th className="pb-6 px-4">Assinatura Manual</th>
                         <th className="pb-6 px-4 text-right">Ações</th>
                       </tr>
                     </thead>
@@ -268,22 +271,26 @@ export default function AdmDashboard() {
                             <p className="font-black text-sm uppercase">{e.nome_aluno}</p>
                             <p className="text-[10px] font-bold text-secondary uppercase">{e.turma_aluno} • RA: {e.ra_aluno}</p>
                           </td>
-                          <td className="py-6 px-4">
-                            <p className="text-sm font-black italic">{e.horario}</p>
-                            <p className="text-[9px] font-black text-primary uppercase">{e.aula_numero}ª Aula</p>
+                          <td className="py-6 px-4 text-center">
+                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest inline-block ${
+                              e.status === 'liberado' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
+                              e.status === 'autorizado' ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse' : 
+                              e.status === 'pendente' ? 'bg-primary text-white shadow-lg' : 
+                              'bg-red-50 text-red-600 border border-red-100'
+                            }`}>{e.status === 'autorizado' ? 'Aguard. Aluno' : e.status}</span>
                           </td>
                           <td className="py-6 px-4">
-                            <p className="text-[10px] font-black uppercase italic text-secondary">{e.autorizado_por || 'Aguardando'}</p>
+                            <p className="text-[10px] font-black uppercase italic text-foreground">{e.autorizado_por || '-'}</p>
                           </td>
                           <td className="py-6 px-4">
                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${e.assinatura_status === 'assinado' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                              {e.assinatura_status}
+                              {e.assinatura_status === 'assinado' ? 'CONCLUÍDA' : 'PENDENTE'}
                             </span>
                           </td>
                           <td className="py-6 px-4 text-right">
                             {e.status === 'pendente' ? (
                               <div className="flex justify-end space-x-2">
-                                <button onClick={() => atualizarStatus(e.id, 'liberado')} className="p-3 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-100 hover:scale-110 transition-all">✅</button>
+                                <button onClick={() => atualizarStatus(e.id, 'autorizado')} className="px-4 py-3 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-emerald-100 hover:scale-105 transition-all">Autorizar</button>
                                 <button onClick={() => atualizarStatus(e.id, 'direcao')} className="px-4 py-3 bg-red-500 text-white rounded-xl text-[9px] font-black uppercase hover:scale-105 transition-all shadow-lg shadow-red-100">Direção</button>
                               </div>
                             ) : (
@@ -299,7 +306,7 @@ export default function AdmDashboard() {
             )}
 
             {activeTab === 'alunos' && (
-              <div className="p-6 sm:p-10 animate-fade-in">
+              <div className="p-6 sm:p-10 animate-fade-in text-foreground">
                 <div className="flex justify-between items-center mb-10">
                   <h2 className="text-2xl font-black uppercase italic border-l-4 border-indigo-500 pl-4">Gerenciar Alunos</h2>
                   <input type="text" placeholder="Buscar..." value={busca} onChange={(e) => setBusca(e.target.value)} className="bg-background border border-border rounded-xl px-5 py-3 text-xs font-bold w-64 text-foreground" />
@@ -319,12 +326,10 @@ export default function AdmDashboard() {
             )}
 
             {activeTab === 'config' && (
-              <div className="p-10 animate-fade-in space-y-12">
+              <div className="p-10 animate-fade-in space-y-12 text-foreground">
                 <h2 className="text-2xl font-black uppercase italic border-l-4 border-amber-500 pl-4">Preferências do Sistema</h2>
-                
-                {/* 1. Controle de Horário */}
                 <section className="bg-background p-8 rounded-[2rem] border border-border">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center text-foreground">
                     <div>
                       <h3 className="font-black text-lg uppercase italic tracking-tighter">Modo Teste / Acesso Livre</h3>
                       <p className="text-xs text-secondary font-bold max-w-md">Desativa a restrição das 19:00, permitindo que alunos loguem em qualquer horário para testes.</p>
@@ -334,31 +339,11 @@ export default function AdmDashboard() {
                     </button>
                   </div>
                 </section>
-
-                {/* 2. Novas Funções de Gestão */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="bg-background p-6 rounded-3xl border border-border space-y-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Exportação em Massa</p>
-                      <button onClick={() => gerarRelatorioGeral(entradas, filtroData)} className="w-full py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-primary/20">Gerar Relatório Geral do Dia (PDF)</button>
-                   </div>
-                   <div className="bg-background p-6 rounded-3xl border border-border space-y-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Notificações por Email</p>
-                      <button disabled className="w-full py-4 bg-gray-100 text-gray-400 rounded-2xl font-black text-[10px] uppercase cursor-not-allowed border border-dashed border-gray-300">Configurar Alerta Pais (Em breve)</button>
-                   </div>
-                   <div className="bg-background p-6 rounded-3xl border border-border space-y-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Limpeza de Histórico</p>
-                      <button disabled className="w-full py-4 bg-red-50 text-red-300 rounded-2xl font-black text-[10px] uppercase border border-red-100">Limpar Dados Antigos (Segurança)</button>
-                   </div>
-                   <div className="bg-background p-6 rounded-3xl border border-border space-y-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Backup de Banco</p>
-                      <button onClick={() => alert("Backup solicitado ao servidor Supabase.")} className="w-full py-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] uppercase border border-indigo-100">Download Snapshot (SQL)</button>
-                   </div>
-                </div>
               </div>
             )}
 
             {activeTab === 'analytics' && (
-              <div className="p-10 animate-fade-in space-y-10">
+              <div className="p-10 animate-fade-in space-y-10 text-foreground">
                 <h2 className="text-2xl font-black uppercase italic border-l-4 border-indigo-500 pl-4">Análise de Fluxo</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    <div className="p-8 bg-background rounded-3xl border border-border h-64 flex flex-col justify-center items-center text-center">
@@ -369,9 +354,6 @@ export default function AdmDashboard() {
                       <p className="text-4xl font-black text-amber-500 mb-2">{entradas.filter(e => e.aula_numero === 2).length}</p>
                       <p className="text-[10px] font-black uppercase text-secondary">Alunos na 2ª Aula</p>
                    </div>
-                   <div className="col-span-full p-8 bg-background rounded-3xl border border-border text-center">
-                      <p className="text-xs font-bold text-secondary italic">Gráficos dinâmicos serão carregados com base na média semanal.</p>
-                   </div>
                 </div>
               </div>
             )}
@@ -381,7 +363,7 @@ export default function AdmDashboard() {
         {/* Modal de Cadastro */}
         {mostraModal && (
           <div className="fixed inset-0 bg-foreground/40 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-            <div className="bg-card w-full max-w-lg rounded-[3rem] shadow-2xl p-8 sm:p-12 animate-fade-in border border-white/20">
+            <div className="bg-card w-full max-w-lg rounded-[3rem] shadow-2xl p-8 sm:p-12 animate-fade-in border border-white/20 text-foreground">
               <div className="flex justify-between items-center mb-10 border-b border-border pb-6 text-foreground">
                 <h3 className="text-3xl font-black uppercase italic tracking-tighter">Novo Aluno</h3>
                 <button onClick={() => setMostraModal(false)} className="text-secondary text-3xl">×</button>

@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const agora = new Date();
     const horaBrasilia = new Date(agora.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
     const horaAtual = horaBrasilia.getHours();
+    const dataHoje = agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
     // Check for bypass config
     const config = await prisma.config.findUnique({ where: { key: 'BYPASS_TIME_RESTRICTION' } });
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     if (!userData) {
       try {
         // Administrador
-        const admin = await prisma.admin.findUnique({ where: { email: username } }); // Email mantém original
+        const admin = await prisma.admin.findUnique({ where: { email: username } }); 
         if (admin && admin.senha === password) {
           userData = { id: admin.id, nome: admin.nome, email: admin.email, profile: 'ADM' };
         }
@@ -47,6 +48,18 @@ export async function POST(request: Request) {
           });
 
           if (aluno && (cleanUser === cleanPass)) {
+            // VERIFICAÇÃO DE DUPLICIDADE (TRAVA DIÁRIA)
+            const jaEntrou = await prisma.entrada.findFirst({
+              where: { 
+                ra_aluno: aluno.ra,
+                data: dataHoje
+              }
+            });
+
+            if (jaEntrou) {
+              return NextResponse.json({ error: 'Você já realizou seu registro de entrada hoje. O acesso ao sistema só será permitido amanhã.' }, { status: 403 });
+            }
+
             if (horaAtual < 19 && !isBypassActive) {
               return NextResponse.json({ error: 'O login só vai funcionar quando estiver em horário escolar por segurança.' }, { status: 403 });
             }
@@ -72,6 +85,18 @@ export async function POST(request: Request) {
           return (sCleanRa === cleanUser || sCleanRg === cleanUser) && cleanUser === cleanPass;
         });
         if (student) {
+          // VERIFICAÇÃO DE DUPLICIDADE FALLBACK
+          const jaEntrouFallback = await prisma.entrada.findFirst({
+            where: { 
+              ra_aluno: student.ra,
+              data: dataHoje
+            }
+          });
+
+          if (jaEntrouFallback) {
+            return NextResponse.json({ error: 'Você já realizou seu registro de entrada hoje. O acesso ao sistema só será permitido amanhã.' }, { status: 403 });
+          }
+
           if (horaAtual < 19 && !isBypassActive) return NextResponse.json({ error: 'O login só vai funcionar em horário escolar.' }, { status: 403 });
           userData = { id: `fallback-${student.ra}`, nome: student.nome, ra: student.ra, rg: student.rg, turma: student.turma, profile: 'Aluno', liberadoSegundaAula: student.liberadoSegundaAula ?? true };
         }
