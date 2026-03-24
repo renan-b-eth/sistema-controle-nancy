@@ -19,11 +19,27 @@ export async function POST(request: Request) {
     const agora = new Date();
     const horaBrasilia = new Date(agora.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
     const horaAtual = horaBrasilia.getHours();
+    const minutoAtual = horaBrasilia.getMinutes();
+    const horarioMinutos = horaAtual * 60 + minutoAtual; // Converter para minutos desde meia-noite
     const dataHoje = agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
     // Check for bypass config
     const config = await prisma.config.findUnique({ where: { key: 'BYPASS_TIME_RESTRICTION' } });
     const isBypassActive = config?.value === 'true';
+
+    // HORÁRIO DE ENTRADA: 19:45 (1185 min) até 20:10 (1210 min)
+    const HORARIO_ENTRADA_INICIO = 19 * 60 + 45; // 19:45 = 1185 minutos
+    const HORARIO_ENTRADA_FIM = 20 * 60 + 10;    // 20:10 = 1210 minutos
+    
+    let horarioStatus: 'permitido' | 'direcao' | 'fora_horario' = 'fora_horario';
+    
+    if (horarioMinutos >= HORARIO_ENTRADA_INICIO && horarioMinutos <= HORARIO_ENTRADA_FIM) {
+      horarioStatus = 'permitido';
+    } else if (horarioMinutos > HORARIO_ENTRADA_FIM) {
+      horarioStatus = 'direcao';
+    } else {
+      horarioStatus = 'fora_horario';
+    }
 
     let userData = null;
 
@@ -60,9 +76,28 @@ export async function POST(request: Request) {
               return NextResponse.json({ error: 'Você já realizou seu registro de entrada hoje. O acesso ao sistema só será permitido amanhã.' }, { status: 403 });
             }
 
-            if (horaAtual < 19 && !isBypassActive) {
-              return NextResponse.json({ error: 'O login só vai funcionar quando estiver em horário escolar por segurança.' }, { status: 403 });
+            // VERIFICAÇÃO DE HORÁRIO (19:45 - 20:10)
+            if (!isBypassActive) {
+              if (horarioStatus === 'fora_horario') {
+                return NextResponse.json({ 
+                  error: '⏰ O login só funciona entre 19:45 e 20:10. Horário atual fora do período de entrada permitido.' 
+                }, { status: 403 });
+              }
+              
+              if (horarioStatus === 'direcao') {
+                // Retorna dados com flag para direção
+                return NextResponse.json({ 
+                  redirectDirecao: true,
+                  message: '🚨 Após 20:10, você deve se dirigir à DIREÇÃO/SECRETARIA para registrar sua entrada.',
+                  aluno: {
+                    nome: aluno.nome,
+                    ra: aluno.ra,
+                    turma: aluno.turma
+                  }
+                }, { status: 200 });
+              }
             }
+            
             userData = { id: aluno.id, nome: aluno.nome, ra: aluno.ra, rg: aluno.rg, turma: aluno.turma, profile: 'Aluno', liberadoSegundaAula: aluno.liberado_segunda_aula };
           }
         }
@@ -97,7 +132,27 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Você já realizou seu registro de entrada hoje. O acesso ao sistema só será permitido amanhã.' }, { status: 403 });
           }
 
-          if (horaAtual < 19 && !isBypassActive) return NextResponse.json({ error: 'O login só vai funcionar em horário escolar.' }, { status: 403 });
+          // VERIFICAÇÃO DE HORÁRIO FALLBACK
+          if (!isBypassActive) {
+            if (horarioStatus === 'fora_horario') {
+              return NextResponse.json({ 
+                error: '⏰ O login só funciona entre 19:45 e 20:10. Horário atual fora do período de entrada permitido.' 
+              }, { status: 403 });
+            }
+            
+            if (horarioStatus === 'direcao') {
+              return NextResponse.json({ 
+                redirectDirecao: true,
+                message: '🚨 Após 20:10, você deve se dirigir à DIREÇÃO/SECRETARIA para registrar sua entrada.',
+                aluno: {
+                  nome: student.nome,
+                  ra: student.ra,
+                  turma: student.turma
+                }
+              }, { status: 200 });
+            }
+          }
+
           userData = { id: `fallback-${student.ra}`, nome: student.nome, ra: student.ra, rg: student.rg, turma: student.turma, profile: 'Aluno', liberadoSegundaAula: student.liberadoSegundaAula ?? true };
         }
       }
