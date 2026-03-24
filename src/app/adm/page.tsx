@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { gerarPDFAssinatura, gerarRelatorioGeral } from '@/utils/pdfGenerator';
+import { gerarPDFAssinatura, gerarRelatorioGeral, gerarListaAlunosSecretaria } from '@/utils/pdfGenerator';
 import { getDataEscolar } from '@/utils/horarios';
 import { supabase } from '@/utils/supabase';
 
@@ -36,6 +36,8 @@ export default function AdmDashboard() {
   const [filtroData, setFiltroData] = useState(getDataEscolar()); 
   const [busca, setBusca] = useState('');
   const [mostraModal, setMostraModal] = useState(false);
+  const [mostraModalEditar, setMostraModalEditar] = useState(false);
+  const [alunoEditando, setAlunoEditando] = useState<Aluno | null>(null);
   const [novoAluno, setNovoAluno] = useState({ nome: '', ra: '', rg: '', turma: '' });
   const [bypassTime, setBypassTime] = useState(false);
   const [lockdown, setLockdown] = useState(false);
@@ -170,6 +172,30 @@ export default function AdmDashboard() {
       } else {
         alert("Erro ao remover aluno.");
       }
+    }
+  };
+
+  const handleEditarClick = (aluno: Aluno) => {
+    setAlunoEditando(aluno);
+    setMostraModalEditar(true);
+  };
+
+  const handleEditarSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!alunoEditando) return;
+
+    const res = await fetch('/api/adm/alunos', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alunoEditando)
+    });
+
+    if (res.ok) {
+      setMostraModalEditar(false);
+      setAlunoEditando(null);
+      carregarAlunos();
+    } else {
+      alert("Erro ao atualizar aluno.");
     }
   };
 
@@ -339,6 +365,7 @@ export default function AdmDashboard() {
                   </div>
                   <div className="flex gap-3">
                     <button onClick={() => mockAcao('Importar planilha CSV de alunos (Prodesp)')} className="px-4 py-2 bg-slate-700 text-white text-[10px] font-black uppercase rounded-lg">📥 Importar CSV</button>
+                    <button onClick={() => gerarListaAlunosSecretaria(alunos)} className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-emerald-500/20">📄 Lista Logins PDF</button>
                     <button onClick={() => setMostraModal(true)} className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-blue-500/20">+ Cadastrar Unitário</button>
                   </div>
                 </div>
@@ -348,7 +375,7 @@ export default function AdmDashboard() {
                     <div key={aluno.id} className="p-5 bg-slate-800 rounded-2xl border border-slate-700 relative group">
                       <div className="flex justify-between items-start mb-2">
                         <p className="font-black text-sm uppercase text-white truncate pr-4">{aluno.nome}</p>
-                        <button className="text-slate-500 hover:text-white" onClick={() => mockAcao('Editar Perfil do Aluno')}>✏️</button>
+                        <button className="text-slate-500 hover:text-white" onClick={() => handleEditarClick(aluno)}>✏️</button>
                       </div>
                       <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-4">
                         <span>RA: {aluno.ra}</span>
@@ -535,6 +562,27 @@ export default function AdmDashboard() {
               </div>
               <input required value={novoAluno.turma} onChange={e => setNovoAluno({...novoAluno, turma: e.target.value})} type="text" placeholder="Turma (Ex: 3ª E)" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500" />
               <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all mt-4">Concluir Cadastro</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar */}
+      {mostraModalEditar && alunoEditando && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 w-full max-w-md rounded-3xl shadow-2xl p-8">
+            <div className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+              <h3 className="text-xl font-black uppercase tracking-widest text-white">Editar Aluno</h3>
+              <button onClick={() => { setMostraModalEditar(false); setAlunoEditando(null); }} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleEditarSubmit} className="space-y-4">
+              <input required value={alunoEditando.nome} onChange={e => setAlunoEditando({...alunoEditando, nome: e.target.value})} type="text" placeholder="Nome Completo" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500" />
+              <div className="grid grid-cols-2 gap-4">
+                <input required value={alunoEditando.ra} onChange={e => setAlunoEditando({...alunoEditando, ra: e.target.value})} type="text" placeholder="RA" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500" />
+                <input required value={alunoEditando.rg} onChange={e => setAlunoEditando({...alunoEditando, rg: e.target.value})} type="text" placeholder="RG" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500" />
+              </div>
+              <input required value={alunoEditando.turma} onChange={e => setAlunoEditando({...alunoEditando, turma: e.target.value})} type="text" placeholder="Turma (Ex: 3ª E)" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500" />
+              <button type="submit" className="w-full py-4 bg-amber-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-700 transition-all mt-4">Salvar Alterações</button>
             </form>
           </div>
         </div>

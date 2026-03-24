@@ -98,3 +98,83 @@ export const gerarRelatorioGeral = (entradas: any[], dataFiltro: string) => {
 
   doc.save(`Relatorio_${dataFiltro}.pdf`);
 };
+
+interface AlunoSecretaria {
+  nome: string;
+  ra: string;
+  rg: string;
+  turma: string;
+}
+
+export const gerarListaAlunosSecretaria = (alunos: AlunoSecretaria[]) => {
+  const doc = new jsPDF();
+  
+  // Cabeçalho Oficial
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('E.E. NANCY DE OLIVEIRA FIDALGO', 105, 20, { align: 'center' });
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Secretaria de Educação do Estado de São Paulo', 105, 28, { align: 'center' });
+  doc.line(20, 35, 190, 35);
+
+  // Título
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LISTA DE ALUNOS - LOGIN E SENHA', 105, 50, { align: 'center' });
+  
+  // Aviso importante
+  doc.setFontSize(10);
+  doc.setTextColor(255, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.text('IMPORTANTE: O login e a senha são IGUAIS ao RA (com os ZEROS no início)', 105, 60, { align: 'center' });
+  doc.text('Exemplo: RA 0001093658058 → Login: 0001093658058 | Senha: 0001093658058', 105, 66, { align: 'center' });
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Total de alunos: ${alunos.length}`, 20, 75);
+  doc.text(`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`, 150, 75);
+
+  // Ordenar alunos por turma e nome
+  const alunosOrdenados = [...alunos].sort((a, b) => {
+    if (a.turma !== b.turma) return a.turma.localeCompare(b.turma);
+    return a.nome.localeCompare(b.nome);
+  });
+
+  const tableData = alunosOrdenados.map(a => [
+    a.nome,
+    a.turma,
+    a.ra,
+    a.ra
+  ]);
+
+  autoTable(doc, {
+    startY: 80,
+    head: [['Nome do Aluno', 'Turma', 'Login (RA)', 'Senha (RA)']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [0, 51, 102] },
+    styles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: {
+      0: { cellWidth: 80 },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 40, halign: 'center', fontStyle: 'bold' },
+      3: { cellWidth: 40, halign: 'center', fontStyle: 'bold' }
+    }
+  });
+
+  // Rodapé com aviso
+  const finalY = (doc as any).lastAutoTable?.finalY || 150;
+  doc.setFontSize(8);
+  doc.setTextColor(255, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.text('AVISO: Sempre digite os ZEROS no início do RA ao fazer login!', 105, finalY + 15, { align: 'center' });
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Este documento é de uso interno da secretaria escolar.', 105, finalY + 25, { align: 'center' });
+
+  doc.save(`Lista_Alunos_Logins_${new Date().toISOString().split('T')[0]}.pdf`);
+};
