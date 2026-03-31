@@ -92,7 +92,7 @@ export function ServiceWorkerRegistration() {
 
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey
+          applicationServerKey: applicationServerKey as unknown as BufferSource
         });
 
         console.log('[SW] Nova subscription criada');
