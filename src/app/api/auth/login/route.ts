@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     const config = await prisma.config.findUnique({ where: { key: 'BYPASS_TIME_RESTRICTION' } });
     const isBypassActive = config?.value === 'true';
 
-    // HORÁRIO DE ENTRADA: 19:45 (1185 min) até 20:10 (1210 min)
-    const HORARIO_ENTRADA_INICIO = 19 * 60 + 45; // 19:45 = 1185 minutos
+    // HORÁRIO DE ENTRADA: 19:00 (1185 min) até 20:10 (1210 min)
+    const HORARIO_ENTRADA_INICIO = 19 * 60 + 45; // 19:00 = 1185 minutos
     const HORARIO_ENTRADA_FIM = 20 * 60 + 10;    // 20:10 = 1210 minutos
     
     let horarioStatus: 'permitido' | 'direcao' | 'fora_horario' = 'fora_horario';
@@ -76,11 +76,11 @@ export async function POST(request: Request) {
               return NextResponse.json({ error: 'Você já realizou seu registro de entrada hoje. O acesso ao sistema só será permitido amanhã.' }, { status: 403 });
             }
 
-            // VERIFICAÇÃO DE HORÁRIO (19:45 - 20:10)
+            // VERIFICAÇÃO DE HORÁRIO (19:00 - 20:10)
             if (!isBypassActive) {
               if (horarioStatus === 'fora_horario') {
                 return NextResponse.json({ 
-                  error: '⏰ O login só funciona entre 19:45 e 20:10. Horário atual fora do período de entrada permitido.' 
+                  error: '⏰ O login só funciona entre 19:00 e 20:10. Horário atual fora do período de entrada permitido.' 
                 }, { status: 403 });
               }
               
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
           if (!isBypassActive) {
             if (horarioStatus === 'fora_horario') {
               return NextResponse.json({ 
-                error: '⏰ O login só funciona entre 19:45 e 20:10. Horário atual fora do período de entrada permitido.' 
+                error: '⏰ O login só funciona entre 19:00 e 20:10. Horário atual fora do período de entrada permitido.' 
               }, { status: 403 });
             }
             
