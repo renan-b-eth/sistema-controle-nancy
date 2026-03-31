@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [direcaoMessage, setDirecaoMessage] = useState<string | null>(null);
   const router = useRouter();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -50,6 +51,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setDirecaoMessage(null);
     setLoading(true);
 
     try {
@@ -60,6 +62,13 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
+
+      // Verificar se é redirecionamento para direção (após 20:10)
+      if (data.redirectDirecao) {
+        setDirecaoMessage(data.message || '🚨 Após 20:10, você deve se dirigir à DIREÇÃO/SECRETARIA para registrar sua entrada.');
+        setLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao realizar login');
@@ -142,6 +151,16 @@ export default function LoginPage() {
             {error && (
               <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-2xl border border-red-100 animate-bounce">
                 ⚠️ {error}
+              </div>
+            )}
+
+            {direcaoMessage && (
+              <div className="p-6 bg-amber-50 text-amber-800 text-sm font-bold rounded-2xl border-2 border-amber-400 animate-pulse">
+                <div className="text-2xl mb-2">🚨</div>
+                {direcaoMessage}
+                <div className="mt-4 text-xs text-amber-700">
+                  Horário de entrada encerrado às 20:10. Dirija-se à secretaria para registrar sua presença.
+                </div>
               </div>
             )}
 

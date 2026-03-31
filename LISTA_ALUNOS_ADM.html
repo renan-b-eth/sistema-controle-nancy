@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Alunos - E.E. Nancy de Oliveira Fidalgo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: white;
+            font-size: 11px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #003366;
+        }
+        .header h1 {
+            font-size: 18px;
+            color: #003366;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 11px;
+            color: #666;
+        }
+        .warning {
+            background: #ffebee;
+            border: 2px solid #f44336;
+            color: #c62828;
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 11px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            background: #003366;
+            color: white;
+            padding: 6px 10px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .section-title.green {
+            background: #006633;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 5px 8px;
+            text-align: left;
+            font-size: 10px;
+        }
+        th {
+            background: #e3f2fd;
+            font-weight: bold;
+        }
+        .adm th {
+            background: #003366;
+            color: white;
+        }
+        .aluno th {
+            background: #006633;
+            color: white;
+        }
+        .turma {
+            text-align: center;
+            font-weight: bold;
+        }
+        .login {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-align: center;
+            background: #fff8e1;
+        }
+        .footer {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 9px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 8px;
+        }
+        .rendey {
+            color: #003366;
+            font-weight: bold;
+        }
+        @media print {
+            body { padding: 10px; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>E.E. NANCY DE OLIVEIRA FIDALGO</h1>
+        <p>Secretaria de Educação do Estado de São Paulo</p>
+        <p style="margin-top:5px; font-weight:bold;">LISTA COMPLETA - ALUNOS E ADMINISTRADORES</p>
+    </div>
+
+    <div class="warning">
+        ⚠️ LOGIN E SENHA SÃO IGUAIS AO RA (com os ZEROS no início)
+    </div>
+
+    <div class="section">
+        <div class="section-title">ADMINISTRADORES DO SISTEMA</div>
+        <table class="adm">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Email (Login)</th>
+                    <th>Senha</th>
+                    <th>Perfil</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Carlos</td>
+                    <td>carlos@adm.com</td>
+                    <td class="login">carlos123</td>
+                    <td class="turma">ADM</td>
+                </tr>
+                <tr>
+                    <td>Ivone</td>
+                    <td>ivone@adm.com</td>
+                    <td class="login">ivone123</td>
+                    <td class="turma">ADM</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <div class="section-title green">ALUNOS (40 total)</div>
+        <table class="aluno">
+            <thead>
+                <tr>
+                    <th>Nome do Aluno</th>
+                    <th class="turma">Turma</th>
+                    <th class="login">Login (RA)</th>
+                    <th class="login">Senha (RA)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>DAVI DE MATOS FONSECA</td><td class="turma">2ª A</td><td class="login">000111738164-X</td><td class="login">000111738164-X</td></tr>
+                <tr><td>GUSTAVO VIEIRA DA SILVA</td><td class="turma">2ª B</td><td class="login">000112274129-7</td><td class="login">000112274129-7</td></tr>
+                <tr><td>JOAO VICTOR PEREIRA RODRIGUES</td><td class="turma">2ª B</td><td class="login">000113380121-3</td><td class="login">000113380121-3</td></tr>
+                <tr><td>KERRISON LIMA RIBEIRO</td><td class="turma">2ª B</td><td class="login">000113183044-1</td><td class="login">000113183044-1</td></tr>
+                <tr><td>ALANA GAMA DE ARAUJO</td><td class="turma">2ª D</td><td class="login">000112164941-5</td><td class="login">000112164941-5</td></tr>
+                <tr><td>GUILHERME BIZARRIAS DE SOUZA</td><td class="turma">2ª D</td><td class="login">000114183041-3</td><td class="login">000114183041-3</td></tr>
+                <tr><td>ISABELLY DA SILVA BESSA</td><td class="turma">2ª D</td><td class="login">000111732839-9</td><td class="login">000111732839-9</td></tr>
+                <tr><td>ISABELLY RODRIGUES GOES</td><td class="turma">2ª D</td><td class="login">000114071847-2</td><td class="login">000114071847-2</td></tr>
+                <tr><td>DAVID LOPES RODRIGUES COSTA</td><td class="turma">2ª E</td><td class="login">000110391065-6</td><td class="login">000110391065-6</td></tr>
+                <tr><td>EMANUELLY MARQUES BATISTA</td><td class="turma">2ª E</td><td class="login">000114079075-4</td><td class="login">000114079075-4</td></tr>
+                <tr><td>JEFFERSON BORGES BELMIRO DOS SANTOS</td><td class="turma">2ª E</td><td class="login">000110414712-9</td><td class="login">000110414712-9</td></tr>
+                <tr><td>JONATHAN LIMA DE JESUS</td><td class="turma">2ª E</td><td class="login">000111878938-6</td><td class="login">000111878938-6</td></tr>
+                <tr><td>RAFAELLA VITORIA RIOS ALVES</td><td class="turma">2ª E</td><td class="login">000124489097-2</td><td class="login">000124489097-2</td></tr>
+                <tr><td>ANA CAROLINA DA SILVA DIAS</td><td class="turma">3ª B</td><td class="login">000110385221-8</td><td class="login">000110385221-8</td></tr>
+                <tr><td>ANNY RAIANY MARCELINO DA SILVA</td><td class="turma">3ª B</td><td class="login">000112550639-8</td><td class="login">000112550639-8</td></tr>
+                <tr><td>GUSTAVO HENRIQUE DOS SANTOS DE JESUS</td><td class="turma">3ª B</td><td class="login">000111878084-X</td><td class="login">000111878084-X</td></tr>
+                <tr><td>RENAN ARTHUR INNOCENCIO DE MORAES</td><td class="turma">3ª B</td><td class="login">000110403329-X</td><td class="login">000110403329-X</td></tr>
+                <tr><td>GUILHERME PAIN DE SOUZA</td><td class="turma">3ª B</td><td class="login">000112183892-3</td><td class="login">000112183892-3</td></tr>
+                <tr><td>GEOVANNA DOS SANTOS SILVA</td><td class="turma">3ª B</td><td class="login">000111844942-3</td><td class="login">000111844942-3</td></tr>
+                <tr><td>MARIA LUISA DA SILVA XAVIER</td><td class="turma">3ª B</td><td class="login">000113892805-7</td><td class="login">000113892805-7</td></tr>
+                <tr><td>JULIA ALVES LINHARES</td><td class="turma">3ª B</td><td class="login">0001132689028</td><td class="login">0001132689028</td></tr>
+                <tr><td>GUSTAVO DANIEL PACHECO</td><td class="turma">3ª B</td><td class="login">0001103290241</td><td class="login">0001103290241</td></tr>
+                <tr><td>MARCELO WENDER MIRANDA RODRIGUES COSTA</td><td class="turma">3ª C</td><td class="login">000113097182-X</td><td class="login">000113097182-X</td></tr>
+                <tr><td>KETHELLYN DOS SANTOS CAJANO</td><td class="turma">3ª C</td><td class="login">000112360623-7</td><td class="login">000112360623-7</td></tr>
+                <tr><td>KAUE DAS NEVES SOUSA DA SILVA</td><td class="turma">3ª C</td><td class="login">000110358351-7</td><td class="login">000110358351-7</td></tr>
+                <tr><td>JOSE HENRIQUE FERREIRA PEREIRA DA SILVA</td><td class="turma">3ª C</td><td class="login">000110413405-6</td><td class="login">000110413405-6</td></tr>
+                <tr><td>RENAN SILVA SOUZA</td><td class="turma">3ª D</td><td class="login">000111838874-4</td><td class="login">000111838874-4</td></tr>
+                <tr><td>JOANNA AZEVEDO DOS SANTOS</td><td class="turma">3ª D</td><td class="login">000110379588-0</td><td class="login">000110379588-0</td></tr>
+                <tr><td>RAYSSA RAKELLY RODRIGUES PORTAS</td><td class="turma">3ª D</td><td class="login">000111836580-X</td><td class="login">000111836580-X</td></tr>
+                <tr><td>GLORIA STEPHANY PEREIRA DA SILVA</td><td class="turma">3ª D</td><td class="login">000111844999-X</td><td class="login">000111844999-X</td></tr>
+                <tr><td>JULIA DE LIMA PINHEIRO</td><td class="turma">3ª D</td><td class="login">000113269559-4</td><td class="login">000113269559-4</td></tr>
+                <tr><td>LUCAS VINICIUS DA SILVA SOUZA</td><td class="turma">3ª E</td><td class="login">000112793347-4</td><td class="login">000112793347-4</td></tr>
+                <tr><td>RUAN ALDO FERREIRA DO AMARAL</td><td class="turma">3ª E</td><td class="login">000111878754-7</td><td class="login">000111878754-7</td></tr>
+                <tr><td>DOUGLAS FREIRE DE MELO</td><td class="turma">3ª E</td><td class="login">000113493367-8</td><td class="login">000113493367-8</td></tr>
+                <tr><td>MARCELLA DELAMARE VIEIRA GARCIA</td><td class="turma">3ª E</td><td class="login">000112884576-3</td><td class="login">000112884576-3</td></tr>
+                <tr><td>BEATRYZ GONCALVES DA SILVA BRUM</td><td class="turma">3ª E</td><td class="login">000112606661-8</td><td class="login">000112606661-8</td></tr>
+                <tr><td>GABRIELE DA SILVA SANTOS</td><td class="turma">3ª E</td><td class="login">000111836491-0</td><td class="login">000111836491-0</td></tr>
+                <tr><td>MARIA LUIZA DE JESUS PEREIRA</td><td class="turma">3ª E</td><td class="login">0001093658058</td><td class="login">0001093658058</td></tr>
+                <tr><td>HELOISA HELENA SOUSA DE LIMA</td><td class="turma">3ª E</td><td class="login">0001124907403</td><td class="login">0001124907403</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p style="color: #c62828; font-weight: bold;">IMPORTANTE: Sempre digite os ZEROS no início do RA ao fazer login!</p>
+        <p style="margin-top: 5px;">Documento gerado em: 24/03/2026 - PortãoEdu Sistema de Controle</p>
+        <p style="margin-top: 3px;">Este documento é de uso interno da secretaria escolar.</p>
+        <p class="rendey" style="margin-top: 8px;">Sistema desenvolvido por Rendey Class - www.rendey.app</p>
+    </div>
+
+    <div class="no-print" style="margin-top: 20px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; background: #003366; color: white; border: none; border-radius: 5px;">
+            🖨️ Imprimir / Salvar como PDF
+        </button>
+    </div>
+</body>
+</html>
