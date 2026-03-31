@@ -38,51 +38,51 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      <main className="pt-32 pb-20 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          <div className="space-y-8 animate-fade-in">
-            <div className="inline-flex items-center px-4 py-1.5 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest border border-primary/20">
+      <main className="pt-24 pb-16 px-3 sm:px-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+          <div className="space-y-6 animate-fade-in">
+            <div className="inline-flex items-center px-3 py-1.5 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest border border-primary/20">
               🚀 Transformando a Educação Pública • 2026
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight text-foreground leading-[1.1]">
+            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-black tracking-tight text-foreground leading-[1.15]">
               Segurança e <br /> 
               <span className="bg-gradient-to-r from-primary to-indigo-600 bg-clip-text text-transparent italic">Controle Digital</span>
             </h1>
-            <p className="text-lg sm:text-xl text-secondary font-medium leading-relaxed max-w-xl">
+            <p className="text-sm sm:text-lg text-secondary font-medium leading-relaxed max-w-xl">
               O <span className="text-foreground font-bold">PortãoEdu</span> automatiza a portaria da <span className="text-primary font-bold italic">E.E. Nancy de Oliveira Fidalgo</span>, unindo tecnologia de ponta com a necessidade escolar de controle de fluxo em tempo real.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <button 
                 onClick={() => router.push('/login')} 
-                className="px-10 py-5 bg-primary text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-primary/30 hover:shadow-primary/40 hover:scale-105 transition-all active:scale-95 flex items-center justify-center group"
+                className="px-8 py-4 sm:px-10 sm:py-5 bg-primary text-white rounded-[2rem] font-black text-base sm:text-lg shadow-2xl shadow-primary/30 hover:shadow-primary/40 hover:scale-105 transition-all active:scale-95 flex items-center justify-center group"
               >
                 ENTRAR NO PORTAL
               </button>
               <a 
                 href="#sobre" 
-                className="px-10 py-5 bg-card border border-border text-secondary rounded-[2rem] font-black text-lg hover:bg-background hover:text-foreground transition-all flex items-center justify-center shadow-sm"
+                className="px-8 py-4 sm:px-10 sm:py-5 bg-card border border-border text-secondary rounded-[2rem] font-black text-base sm:text-lg hover:bg-background hover:text-foreground transition-all flex items-center justify-center shadow-sm"
               >
                 VER MAIS
               </a>
             </div>
           </div>
 
-          <div className="relative animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            <div className="absolute inset-0 bg-primary rounded-full blur-[100px] opacity-10"></div>
-            <div className="relative bg-card/40 backdrop-blur-3xl p-6 sm:p-10 rounded-[3rem] border border-white/20 shadow-2xl overflow-hidden group">
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div className="p-8 bg-primary rounded-[2rem] text-white shadow-xl shadow-primary/20 transform group-hover:-translate-y-2 transition-transform">
-                  <p className="text-[10px] font-black uppercase opacity-70 mb-2">Monitoramento</p>
-                  <p className="text-2xl font-black tracking-tighter italic text-white">Live Flow</p>
+          <div className="relative animate-fade-in mt-8 lg:mt-0" style={{ animationDelay: '0.2s' }}>
+            <div className="absolute inset-0 bg-primary rounded-full blur-[80px] md:blur-[100px] opacity-10"></div>
+            <div className="relative bg-card/40 backdrop-blur-3xl p-4 sm:p-8 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-white/20 shadow-2xl overflow-hidden group">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 text-center">
+                <div className="p-4 sm:p-8 bg-primary rounded-[1.5rem] sm:rounded-[2rem] text-white shadow-xl shadow-primary/20 transform group-hover:-translate-y-2 transition-transform">
+                  <p className="text-[8px] sm:text-[10px] font-black uppercase opacity-70 mb-2">Monitoramento</p>
+                  <p className="text-xl sm:text-2xl font-black tracking-tighter italic text-white">Live Flow</p>
                 </div>
-                <div className="p-8 bg-foreground rounded-[2rem] text-background shadow-xl transform group-hover:translate-y-2 transition-transform">
-                  <p className="text-[10px] font-black uppercase opacity-70 mb-2">Validação</p>
-                  <p className="text-2xl font-black tracking-tighter italic text-white">QR-ID</p>
+                <div className="p-4 sm:p-8 bg-foreground rounded-[1.5rem] sm:rounded-[2rem] text-background shadow-xl transform group-hover:translate-y-2 transition-transform">
+                  <p className="text-[8px] sm:text-[10px] font-black uppercase opacity-70 mb-2">Validação</p>
+                  <p className="text-xl sm:text-2xl font-black tracking-tighter italic text-white">QR-ID</p>
                 </div>
-                <div className="col-span-2 p-8 sm:p-10 bg-background/80 border border-border rounded-[2rem] space-y-6">
-                  <div className="flex justify-between items-center border-b border-border pb-4">
-                    <p className="font-black text-foreground uppercase text-[10px] tracking-widest">Painel de Gestão</p>
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[8px] font-black uppercase italic">Carlos & Ivone On-line</span>
+                <div className="col-span-2 p-4 sm:p-8 md:p-10 bg-background/80 border border-border rounded-[1.5rem] sm:rounded-[2rem] space-y-4 sm:space-y-6">
+                  <div className="flex justify-between items-center border-b border-border pb-3 sm:pb-4">
+                    <p className="font-black text-foreground uppercase text-[8px] sm:text-[10px] tracking-widest">Painel de Gestão</p>
+                    <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-emerald-100 text-emerald-600 rounded-full text-[6px] sm:text-[8px] font-black uppercase italic">Carlos & Ivone On-line</span>
                   </div>
                   <p className="text-xs text-secondary font-medium text-left leading-relaxed">
                     Interface exclusiva para a gestão escolar liberar acessos e monitorar o status de assinatura de cada aluno em tempo real.

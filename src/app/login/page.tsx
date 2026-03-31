@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+
+// Audio base64 - Alerta sonoro simples (beep)
+const ALERT_SOUND = 'data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -9,6 +12,40 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playAlertSound = async () => {
+    try {
+      // Criar elemento audio dinamicamente
+      const audio = new Audio(ALERT_SOUND);
+      audio.volume = 0.7;
+      await audio.play();
+    } catch (err) {
+      console.log('Audio autoplay blocked:', err);
+      // Fallback: tentar após interação do usuário
+      const fallbackAudio = new Audio(ALERT_SOUND);
+      fallbackAudio.volume = 0.5;
+      setTimeout(() => fallbackAudio.play().catch(() => {}), 100);
+    }
+  };
+
+  const checkPendingAlunos = async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/adm/alunos?status=pendente', { 
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!res.ok) return false;
+      
+      const data = await res.json();
+      return data.alunos && data.alunos.length > 0;
+    } catch (err) {
+      console.error('Erro ao verificar pendentes:', err);
+      return false;
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +65,25 @@ export default function LoginPage() {
         throw new Error(data.error || 'Erro ao realizar login');
       }
 
+      // Salvar no localStorage
       localStorage.setItem('user', JSON.stringify(data.user));
+
+      // SE FOR ADM: Verificar alunos pendentes antes do redirect
+      if (data.user.profile === 'ADM') {
+        const hasPending = await checkPendingAlunos();
+        
+        if (hasPending) {
+          // Disparar som de alerta
+          await playAlertSound();
+          
+          // Pequeno delay para o som tocar antes do redirect
+          setTimeout(() => {
+            router.push('/adm');
+          }, 500);
+          return;
+        }
+      }
+
       router.push(data.user.profile === 'ADM' ? '/adm' : '/aluno');
     } catch (err: any) {
       setError(err.message);
@@ -38,22 +93,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6 font-sans relative overflow-hidden">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 font-sans relative overflow-hidden">
       {/* Decorative Background */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px]"></div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-in">
-        <div className="bg-card/80 backdrop-blur-2xl p-8 sm:p-12 rounded-[2.5rem] shadow-2xl border border-white/20">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-primary to-indigo-600 rounded-[1.5rem] shadow-xl shadow-primary/20 mb-6 transform hover:rotate-6 transition-transform">
-              <span className="text-white text-4xl font-black italic">N</span>
+        <div className="bg-card/80 backdrop-blur-2xl p-6 sm:p-12 rounded-[2.5rem] shadow-2xl border border-white/20">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-primary to-indigo-600 rounded-[1.5rem] shadow-xl shadow-primary/20 mb-4 sm:mb-6 transform hover:rotate-6 transition-transform">
+              <span className="text-white text-3xl sm:text-4xl font-black italic">N</span>
             </div>
-            <h1 className="text-4xl font-black text-foreground tracking-tighter">PortãoEdu</h1>
+            <h1 className="text-3xl sm:text-4xl font-black text-foreground tracking-tighter">PortãoEdu</h1>
             <p className="text-secondary font-bold mt-2 uppercase tracking-[0.2em] text-[10px]">Escola Nancy de Oliveira Fidalgo</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-secondary uppercase tracking-widest ml-1">RA ou Email Gestão</label>
               <div className="relative group">
@@ -62,7 +117,7 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Digite seu RA ou usuário"
-                  className="w-full px-6 py-4 bg-background border border-border rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-foreground shadow-sm"
+                  className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-background border border-border rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-foreground shadow-sm text-sm sm:text-base"
                   required
                   disabled={loading}
                 />
@@ -77,7 +132,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full px-6 py-4 bg-background border border-border rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-foreground shadow-sm"
+                  className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-background border border-border rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-foreground shadow-sm text-sm sm:text-base"
                   required
                   disabled={loading}
                 />

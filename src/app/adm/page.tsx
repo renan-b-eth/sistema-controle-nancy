@@ -39,7 +39,8 @@ export default function AdmDashboard() {
   const [novoAluno, setNovoAluno] = useState({ nome: '', ra: '', rg: '', turma: '' });
   const [bypassTime, setBypassTime] = useState(false);
   const [lockdown, setLockdown] = useState(false);
-  
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
 
@@ -188,35 +189,81 @@ export default function AdmDashboard() {
     <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans">
       
       {/* Topbar Corporativa */}
-      <header className={`sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-slate-800 backdrop-blur-md ${lockdown ? 'bg-red-900/80' : 'bg-slate-900/80'}`}>
-        <div className="flex items-center space-x-4">
+      <header className={`sticky top-0 z-50 px-4 py-3 md:px-6 md:py-4 flex justify-between items-center border-b border-slate-800 backdrop-blur-md ${lockdown ? 'bg-red-900/80' : 'bg-slate-900/80'}`}>
+        <div className="flex items-center space-x-3 md:space-x-4">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-xl italic shadow-lg shadow-blue-500/20">N</div>
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight italic flex items-center gap-2">
-              PortãoEdu <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-[8px] rounded uppercase not-italic">Enterprise</span>
+            <h1 className="text-lg md:text-xl font-black text-white tracking-tight italic flex items-center gap-2">
+              PortãoEdu <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-[8px] rounded uppercase not-italic hidden sm:inline">Enterprise</span>
             </h1>
-            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">E.E. Nancy de Oliveira Fidalgo</p>
+            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest hidden md:block">E.E. Nancy de Oliveira Fidalgo</p>
           </div>
         </div>
         
-        <div className="flex items-center space-x-4">
-          {lockdown && <span className="px-4 py-1.5 bg-red-600 text-white text-[10px] font-black uppercase rounded-full animate-pulse tracking-widest">LOCKDOWN ATIVO</span>}
-          <div className="px-4 py-2 bg-slate-800 rounded-xl flex items-center space-x-2 border border-slate-700">
+        <div className="flex items-center space-x-2 md:space-x-4">
+          {lockdown && <span className="px-2 md:px-4 py-1 md:py-1.5 bg-red-600 text-white text-[10px] font-black uppercase rounded-full animate-pulse tracking-widest">LOCKDOWN</span>}
+          <div className="px-2 md:px-4 py-2 bg-slate-800 rounded-xl flex items-center space-x-2 border border-slate-700">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span className="text-[10px] font-black uppercase text-slate-300">Operador: {user.nome}</span>
+            <span className="text-[10px] font-black uppercase text-slate-300 hidden sm:inline">Operador: {user.nome}</span>
           </div>
-          <button onClick={handleLogout} className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-all border border-slate-700">⎋</button>
+          {/* Mobile Menu Button */}
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
+            className="md:hidden w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 border border-slate-700"
+          >
+            {mobileMenuOpen ? '✕' : '☰'}
+          </button>
+          <button onClick={handleLogout} className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-all border border-slate-700 hidden md:flex">⎋</button>
         </div>
       </header>
 
-      {/* Alarme Flutuante */}
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 bg-slate-900/95 md:hidden pt-20 px-4">
+          <div className="flex flex-col gap-2 overflow-y-auto h-full pb-20">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-4 mb-2 mt-4">Comando</p>
+            <button onClick={() => {setActiveTab('operacional'); setMobileMenuOpen(false)}} className={`w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'operacional' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><span>📺</span> Portaria Live</button>
+            
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-4 mb-2 mt-4">Gestão Escolar</p>
+            <button onClick={() => {setActiveTab('alunos'); setMobileMenuOpen(false)}} className={`w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'alunos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><span>👥</span> Base Alunos</button>
+            <button onClick={() => {setActiveTab('comunicacao'); setMobileMenuOpen(false)}} className={`w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'comunicacao' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><span>💬</span> Comunicação</button>
+            
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-4 mb-2 mt-4">Análise & Dados</p>
+            <button onClick={() => {setActiveTab('relatorios'); setMobileMenuOpen(false)}} className={`w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'relatorios' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><span>📊</span> Relatórios</button>
+            <button onClick={() => {setActiveTab('seguranca'); setMobileMenuOpen(false)}} className={`w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'seguranca' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><span>🛡️</span> Auditoria</button>
+
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-4 mb-2 mt-4">Sistema</p>
+            <button onClick={() => {setActiveTab('integracoes'); setMobileMenuOpen(false)}} className={`w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'integracoes' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><span>🔌</span> Integrações</button>
+            <button onClick={() => {setActiveTab('config'); setMobileMenuOpen(false)}} className={`w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'config' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><span>⚙️</span> Ajustes Globais</button>
+            
+            <button onClick={handleLogout} className="w-full text-left px-4 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 text-red-400 hover:bg-red-500/10 mt-4">⎋ Sair do Sistema</button>
+          </div>
+        </div>
+      )}
+
+      {/* Alarme Flutuante - Mobile Friendly */}
       {entradas.some(e => e.status === 'pendente') && !lockdown && (
-        <div className="fixed bottom-6 right-6 z-50 bg-amber-500 text-white p-6 rounded-3xl shadow-2xl flex items-center space-x-4 animate-bounce hover:animate-none cursor-pointer" onClick={() => setActiveTab('operacional')}>
-          <span className="text-4xl">🔔</span>
-          <div>
+        <div className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 bg-amber-500 text-white p-3 md:p-6 rounded-2xl md:rounded-3xl shadow-2xl flex items-center space-x-2 md:space-x-4 animate-bounce hover:animate-none cursor-pointer max-w-[calc(100vw-2rem)] md:max-w-none" onClick={() => setActiveTab('operacional')}>
+          <span className="text-2xl md:text-4xl">🔔</span>
+          <div className="hidden sm:block">
             <p className="font-black uppercase tracking-tighter text-lg">Chamada no Portão!</p>
             <p className="font-bold text-xs opacity-90">Clique para analisar.</p>
           </div>
+          <div className="sm:hidden">
+            <p className="font-black uppercase tracking-tighter text-sm">{entradas.filter(e => e.status === 'pendente').length}</p>
+            <p className="font-bold text-[10px] opacity-90">Novas</p>
+          </div>
+          <button 
+            className="absolute -top-2 -right-2 w-6 h-6 bg-slate-900 rounded-full flex items-center justify-center text-white text-xs font-black hover:bg-red-500 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Silenciar alarme por 5 minutos
+              const now = Date.now();
+              localStorage.setItem('alarm_silenced', now.toString());
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
