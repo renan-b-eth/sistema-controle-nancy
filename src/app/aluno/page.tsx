@@ -159,11 +159,10 @@ export default function AlunoDashboard() {
 
         {status === 'aguardando' || status === 'pendente' ? (
           <div className="space-y-6">
-            <div className="text-6xl animate-bounce text-blue-600">⏳</div>
-            <h2 className="text-3xl font-black text-blue-600 uppercase italic leading-none">Aguardando</h2>
+            <div className="text-6xl animate-bounce text-blue-600">👋</div>
+            <h2 className="text-3xl font-black text-blue-600 uppercase italic leading-none">Bem-vindo!</h2>
             <p className="text-slate-600 font-medium leading-relaxed">
               Olá <span className="font-bold text-slate-900">{user.nome.split(' ')[0]}</span>, clique no botão abaixo para registrar sua entrada. 
-              <br/> Aguarda que a <span className="font-bold text-slate-900">Ivone ou o Carlos</span> autorizem no sistema.
             </p>
             
             {/* Botão Grande de Registrar Entrada */}
@@ -179,7 +178,7 @@ export default function AlunoDashboard() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    ENVIANDO...
+                    REGISTRANDO...
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-3">
@@ -192,55 +191,24 @@ export default function AlunoDashboard() {
             
             {protocolo && (
               <div className="flex items-center justify-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                <span className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></span>
-                Sincronia Live Ativa
+                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                Entrada Registrada
               </div>
             )}
           </div>
         ) : isLiberado ? (
           <div className="space-y-6">
             <div className="text-6xl text-emerald-500">✅</div>
-            <h2 className="text-3xl font-black text-emerald-600 uppercase italic leading-none">Liberado!</h2>
+            <h2 className="text-3xl font-black text-emerald-600 uppercase italic leading-none">Entrada Liberada!</h2>
             
-            {status === 'autorizado' ? (
-              <div className="space-y-6">
-                <p className="text-slate-600 font-medium">
-                  Olá <span className="font-bold text-slate-900 uppercase">{user.nome.split(' ')[0]}</span>, a tua entrada foi autorizada. Estás <span className="underline font-bold">LIBERADO</span>.
-                </p>
+            <div className="py-6 space-y-4 text-slate-900">
+              <p className="font-black text-xl italic">Bom estudo, {user.nome.split(' ')[0]}!</p>
+              <p className="text-slate-500 text-xs">Sua entrada foi registrada com sucesso.</p>
+            </div>
 
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-start gap-4 text-left cursor-pointer" onClick={() => {
-                  setTermoAceito(!termoAceito);
-                  if (!termoAceito) setTimerRunning(true);
-                }}>
-                  <div className={`w-6 h-6 min-w-[24px] rounded-md border-2 flex items-center justify-center transition-all ${termoAceito ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
-                    {termoAceito && <span className="text-white text-xs font-black">✓</span>}
-                  </div>
-                  <span className="text-xs text-slate-500 font-semibold italic leading-tight">Eu afirmo que já assinei o documento manual na coordenação e aceito as políticas da escola.</span>
-                </div>
-
-                <button 
-                  disabled={!termoAceito} 
-                  className={`w-full py-5 rounded-2xl font-black uppercase text-xs shadow-xl transition-all ${
-                    termoAceito ? 'bg-emerald-500 text-white hover:scale-[1.02]' : 'bg-slate-100 text-slate-300'
-                  }`}
-                  onClick={async () => {
-                    const res = await fetch('/api/entradas/signature', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ protocolo: protocolo, status: 'assinado' })
-                    });
-                    if (res.ok) setStatus('liberado');
-                  }}
-                >
-                  Confirmar Entrada
-                </button>
-              </div>
-            ) : (
-              <div className="py-10 space-y-4 text-slate-900">
-                <p className="font-black text-2xl italic">Bom estudo!</p>
-                <p className="text-slate-500 text-xs italic">Registro concluído. Saindo em {timeLeft}s...</p>
-              </div>
-            )}
+            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <p className="text-xs text-slate-600 font-semibold">Protocolo: <span className="font-mono font-bold">{protocolo}</span></p>
+            </div>
           </div>
         ) : (
           <div className="text-red-600 font-black uppercase text-center space-y-4">

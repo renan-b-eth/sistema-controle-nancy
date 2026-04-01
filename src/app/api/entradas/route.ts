@@ -30,14 +30,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // Se não existe, cria a nova
+    // Se não existe, cria a nova entrada (AUTOMÁTICA - SEM NECESSIDADE DE APROVAÇÃO)
     await prisma.entrada.create({
       data: {
         protocolo: body.protocolo,
         data: body.data,
         horario: body.horario,
         aula_numero: Number(body.aula_numero),
-        status: 'pendente',
+        status: 'liberado', // ENTRADA AUTOMÁTICA - NÃO PRECISA DE APROVAÇÃO
         nome_aluno: user.nome,
         ra_aluno: user.ra,
         rg_aluno: user.rg,
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       }
     });
 
-    return NextResponse.json({ success: true, protocolo: body.protocolo, status: 'pendente' });
+    return NextResponse.json({ success: true, protocolo: body.protocolo, status: 'liberado' });
 
   } catch (error: any) {
     console.error('ERRO NO PRISMA ENTRADAS:', error);
