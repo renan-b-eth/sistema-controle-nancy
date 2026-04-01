@@ -151,27 +151,52 @@ export default function AdmDashboard() {
 
   const handleCadastrar = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/adm/alunos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(novoAluno)
-    });
-    if (res.ok) {
-      setMostraModal(false);
-      setNovoAluno({ nome: '', ra: '', rg: '', turma: '' });
-      carregarAlunos();
-    } else {
-      alert("Erro ao cadastrar aluno.");
+    
+    // Validação básica
+    if (!novoAluno.nome || !novoAluno.ra || !novoAluno.rg || !novoAluno.turma) {
+      alert("⚠️ Preencha todos os campos obrigatórios.");
+      return;
+    }
+    
+    // Preparar dados - limpar traços e garantir uppercase
+    const dadosAluno = {
+      nome: novoAluno.nome.toUpperCase().trim(),
+      ra: novoAluno.ra.replace(/-/g, '').trim(),
+      rg: novoAluno.rg.replace(/-/g, '').trim(),
+      turma: novoAluno.turma.toUpperCase().trim()
+    };
+    
+    try {
+      const res = await fetch('/api/adm/alunos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dadosAluno)
+      });
+      
+      if (res.ok) {
+        setMostraModal(false);
+        setNovoAluno({ nome: '', ra: '', rg: '', turma: '' });
+        carregarAlunos();
+        alert(`✅ Aluno "${dadosAluno.nome}" cadastrado com sucesso!\n\nLogin: ${dadosAluno.ra}\nSenha: ${dadosAluno.ra}`);
+      } else {
+        const erro = await res.json();
+        alert(`❌ Erro ao cadastrar aluno: ${erro.error || 'Verifique se o RA/RG já existe.'}`);
+      }
+    } catch (error) {
+      alert("❌ Erro de conexão ao cadastrar aluno.");
     }
   };
 
-  const handleDeletar = async (id: string) => {
-    if (confirm("Deseja realmente remover este aluno do sistema permanentemente?")) {
-      const res = await fetch(`/api/adm/alunos?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        carregarAlunos();
-      } else {
-        alert("Erro ao remover aluno.");
+  const handleDeletar = async (id: string, nome: string) => {
+    if (confirm(`⚠️ ATENÇÃO!\n\nDeseja realmente remover PERMANENTEMENTE o aluno:\n"${nome}"?\n\nEsta ação não pode ser desfeita!`)) {
+      if (confirm(`Confirmação final:\nDigite "${nome.toUpperCase()}" para confirmar a exclusão.`)) {
+        const res = await fetch(`/api/adm/alunos?id=${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          carregarAlunos();
+          alert(`✅ Aluno "${nome}" removido com sucesso.`);
+        } else {
+          alert("❌ Erro ao remover aluno.");
+        }
       }
     }
   };
@@ -430,7 +455,7 @@ export default function AdmDashboard() {
                       </div>
                       <div className="flex gap-2 border-t border-slate-700 pt-4">
                         <button onClick={() => mockAcao(`Suspender QR Code temporariamente do RA ${aluno.ra}`)} className="flex-1 py-1.5 bg-slate-900 text-amber-500 rounded text-[9px] font-black uppercase border border-slate-700 hover:border-amber-500/50 transition-all">Bloquear Cartão</button>
-                        <button onClick={() => handleDeletar(aluno.id)} className="flex-1 py-1.5 bg-slate-900 text-red-500 rounded text-[9px] font-black uppercase border border-slate-700 hover:border-red-500/50 transition-all">Desvincular</button>
+                        <button onClick={() => handleDeletar(aluno.id, aluno.nome)} className="flex-1 py-1.5 bg-slate-900 text-red-500 rounded text-[9px] font-black uppercase border border-slate-700 hover:border-red-500/50 transition-all">Desvincular</button>
                       </div>
                     </div>
                   ))}
@@ -562,12 +587,14 @@ export default function AdmDashboard() {
                     </div>
                   </div>
 
-                  <div className="bg-red-900/10 p-8 rounded-3xl border border-red-500/20 flex flex-col justify-between">
+                  <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 flex flex-col justify-between">
                     <div>
-                      <h3 className="font-black text-lg uppercase tracking-widest mb-2 text-red-400">Manutenção de Banco (SQL)</h3>
-                      <p className="text-xs text-slate-400 mb-6">Force a injeção de colunas estruturais faltantes no servidor Supabase. Use caso ocorram erros de salvamento.</p>
+                      <h3 className="font-black text-lg uppercase tracking-widest mb-2 text-slate-400">Manutenção de Banco</h3>
+                      <p className="text-xs text-slate-500 mb-6">Operações de banco de dados são restritas ao programador. Contate o suporte técnico se necessário.</p>
                     </div>
-                    <button onClick={repararBanco} className="w-full py-3 bg-red-600/20 text-red-500 border border-red-500/50 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-colors">Executar Reparo Forçado</button>
+                    <div className="w-full py-3 bg-slate-900 text-slate-500 border border-slate-700 rounded-xl font-black text-[10px] uppercase text-center">
+                      🔒 Acesso Restrito
+                    </div>
                   </div>
                 </div>
 
