@@ -8,12 +8,13 @@ import { getAulaAtual, getDataEscolar } from '@/utils/horarios';
 
 export default function AlunoDashboard() {
   const [user, setUser] = useState<any>(null);
-  const [status, setStatus] = useState('aguardando'); // Estado reativo crítico
+  const [status, setStatus] = useState('aguardando');
   const [protocolo, setProtocolo] = useState('');
   const [mounted, setMounted] = useState(false);
   const [termoAceito, setTermoAceito] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   const router = useRouter();
 
@@ -97,9 +98,15 @@ export default function AlunoDashboard() {
 
   // Registro automático de entrada (se não existir)
   useEffect(() => {
-    if (!mounted || !user || protocolo) return;
+    if (!mounted || !user) return;
+    // Não registrar automaticamente - esperar o aluno clicar no botão
+  }, [mounted, user]);
+
+  const registrarEntrada = async () => {
+    if (!user || protocolo) return;
     
-    const registrar = async () => {
+    setLoading(true);
+    try {
       let aula = getAulaAtual() || { numero: 1 };
       const res = await fetch('/api/entradas', {
         method: 'POST',
@@ -116,9 +123,12 @@ export default function AlunoDashboard() {
         setProtocolo(data.protocolo);
         setStatus(data.status);
       }
-    };
-    registrar();
-  }, [mounted, user, protocolo]);
+    } catch (err) {
+      console.error('Erro ao registrar:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!mounted || !user) return null;
 
@@ -152,13 +162,40 @@ export default function AlunoDashboard() {
             <div className="text-6xl animate-bounce text-blue-600">⏳</div>
             <h2 className="text-3xl font-black text-blue-600 uppercase italic leading-none">Aguardando</h2>
             <p className="text-slate-600 font-medium leading-relaxed">
-              Olá <span className="font-bold text-slate-900">{user.nome.split(' ')[0]}</span>, o teu pedido foi enviado. 
+              Olá <span className="font-bold text-slate-900">{user.nome.split(' ')[0]}</span>, clique no botão abaixo para registrar sua entrada. 
               <br/> Aguarda que a <span className="font-bold text-slate-900">Ivone ou o Carlos</span> autorizem no sistema.
             </p>
-            <div className="flex items-center justify-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-              <span className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></span>
-              Sincronia Live Ativa
-            </div>
+            
+            {/* Botão Grande de Registrar Entrada */}
+            {!protocolo && (
+              <button
+                onClick={registrarEntrada}
+                disabled={loading}
+                className={`w-full py-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-600/30 transition-all transform hover:scale-105 active:scale-95 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin h-6 w-6 mr-3 text-white" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    ENVIANDO...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-3">
+                    <span className="text-3xl">👆</span>
+                    REGISTRAR ENTRADA
+                  </span>
+                )}
+              </button>
+            )}
+            
+            {protocolo && (
+              <div className="flex items-center justify-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                <span className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></span>
+                Sincronia Live Ativa
+              </div>
+            )}
           </div>
         ) : isLiberado ? (
           <div className="space-y-6">
