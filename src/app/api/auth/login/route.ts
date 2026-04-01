@@ -38,29 +38,59 @@ export async function POST(request: Request) {
       horarioStatus = 'fora_horario';
     }
 
-    // Buscar aluno pelo nome (busca parcial para ser mais flexível)
-    const aluno = await prisma.aluno.findFirst({
-      where: { 
-        nome: { contains: nomeBusca, mode: 'insensitive' }
-      }
-    });
-
-    // Se não encontrou pelo nome completo, tentar busca mais flexível
-    let alunoEncontrado = aluno;
+    // Buscar aluno pelo nome (busca flexível - aceita parte do nome, minúsculo/maiúsculo)
+    // Remove acentos para busca mais flexível
+    const normalizeText = (text: string) => {
+      return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    };
     
-    if (!alunoEncontrado) {
-      // Buscar por partes do nome
-      const palavrasNome = nomeBusca.split(' ').filter((p: string) => p.length > 2);
-      for (const palavra of palavrasNome) {
+    const nomeBuscaNormalizado = normalizeText(nomeBusca);
+    const palavrasBusca = nomeBuscaNormalizado.split(' ').filter((p: string) => p.length >= 3);
+    
+    let alunoEncontrado = null;
+    
+    // Primeiro: tenta busca por qualquer palavra do nome (mais flexível)
+    if (palavrasBusca.length > 0) {
+      for (const palavra of palavrasBusca) {
         const encontrado = await prisma.aluno.findFirst({
           where: { 
-            nome: { contains: palavra, mode: 'insensitive' }
+            nome: { 
+              contains: palavra, 
+              mode: 'insensitive' 
+            }
           }
         });
         if (encontrado) {
           alunoEncontrado = encontrado;
           break;
         }
+      }
+    }
+    
+    // Segundo: se não encontrou, tenta busca pelo nome completo
+    if (!alunoEncontrado) {
+      alunoEncontrado = await prisma.aluno.findFirst({
+        where: { 
+          nome: { 
+            contains: nomeBuscaNormalizado, 
+            mode: 'insensitive' 
+          }
+        }
+      });
+    }
+    
+    // Terceiro: busca por aproximação (se digitou pelo menos 4 caracteres)
+    if (!alunoEncontrado && nomeBuscaNormalizado.length >= 4) {
+      const todosAlunos = await prisma.aluno.findMany({
+        where: {
+          nome: {
+            startsWith: nomeBuscaNormalizado.substring(0, 4),
+            mode: 'insensitive'
+          }
+        }
+      });
+      if (todosAlunos.length === 1) {
+        alunoEncontrado = todosAlunos[0];
       }
     }
 
